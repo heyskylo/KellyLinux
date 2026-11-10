@@ -1,0 +1,199 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Build an unsigned Kernarium .ipa for the iOS device. The kernel job builds
+# the Linux and Android kernel bundles only when a kernel input changes, and
+# the cached bundles serve every other run. The accepted boot base archive is
+# not rebuildable byte-for-byte, so it comes from the `ci-inputs` release.
+# Configure and packaging verify every input against the tracked descriptors.
+name: Kernarium IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kernel:
+    runs-on: macos-26
+    timeout-minutes: 240
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.build/ccache-kernel
+      CCACHE_MAXSIZE: 3G
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore kernel bundles
+        id: bundles
+        uses: actions/cache@v4
+        with:
+          path: .build/kernel/artifacts
+          key: kernel-${{ hashFiles('kernel/common/**', 'kernel/mainline-6.18/**') }}
+
+      - uses: actions/setup-python@v5
+        if: steps.bundles.outputs.cache-hit != 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Install kernel toolchain
+        if: steps.bundles.outputs.cache-hit != 'true'
+        run: |
+          brew install ccache llvm lld make autoconf automake gettext libtool
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Restore kernel host tools
+        if: steps.bundles.outputs.cache-hit != 'true'
+        id: hosttools
+        uses: actions/cache@v4
+        with:
+          path: .build/dependencies/kernel-host-tools
+          key: kernel-host-tools-${{ hashFiles('dependencies/manifest.tsv', 'dependencies/kernel-host-tools/**', 'dependencies/patches/**', 'dependencies/build-kernel-host-tools.sh') }}
+
+      - name: Build kernel host tools
+        if: steps.bundles.outputs.cache-hit != 'true' && steps.hosttools.outputs.cache-hit != 'true'
+        run: |
+          dependencies/prepare.sh --product kernel-host-tools
+          dependencies/prepare.sh --archive-manifest dependencies/kernel-host-tools/archives.tsv
+          dependencies/build-kernel-host-tools.sh --jobs "$(sysctl -n hw.logicalcpu)"
+
+      - name: Restore compiler cache
+        if: steps.bundles.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: .build/ccache-kernel
+          key: ccache-kernel-${{ github.run_id }}
+          restore-keys: ccache-kernel-
+
+      - name: Build and publish kernels
+        if: steps.bundles.outputs.cache-hit != 'true'
+        run: |
+          llvm=$(brew --prefix llvm)/bin
+          export UML_KERNEL_CC="ccache $llvm/clang"
+          export UML_KERNEL_LD="$(brew --prefix lld)/bin/ld.lld"
+          # The kernel source has paths that differ only by case.
+          hdiutil create -size 40g -type SPARSE -fs "Case-sensitive APFS" -volname kernel-src "$RUNNER_TEMP/kernel-src"
+          hdiutil attach "$RUNNER_TEMP/kernel-src.sparseimage" -mountpoint "$RUNNER_TEMP/ksrc"
+          echo "UML_KERNEL_SOURCE_DIR=$RUNNER_TEMP/ksrc/linux" > kernel/mainline-6.18/source-location.conf
+          kernel/mainline-6.18/scripts/prepare-source.sh
+          for product in linux android; do
+            case $product in
+            linux) env=kernel/mainline-6.18/artifacts/accepted-4k.env ;;
+            android) env=kernel/mainline-6.18/artifacts/accepted-android-4k.env ;;
+            esac
+            release=$(. "./$env"; printf '%s' "$UML_KERNEL_ARTIFACT_RELEASE_ID")
+            build="$RUNNER_TEMP/ksrc/build-$product"
+            kernel/mainline-6.18/build/build-kernel.sh --product "$product" --build "$build"
+            kernel/mainline-6.18/build/publish-artifact.py --product "$product" \
+              --source "$RUNNER_TEMP/ksrc/linux" --build "$build" \
+              --output-root "$PWD/.build/kernel/artifacts" --release-id "$release" \
+              --objcopy "$llvm/llvm-objcopy"
+          done
+          ccache -s
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-bundles
+          path: .build/kernel/artifacts
+          if-no-files-found: error
+          retention-days: 3
+
+  ipa:
+    needs: kernel
+    runs-on: macos-26
+    timeout-minutes: 240
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CCACHE_DIR: ${{ github.workspace }}/.build/ccache-runtime
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode with the iOS 27 SDK
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_27*.app | sort -V | tail -1)"
+          xcodebuild -version
+          xcodebuild -downloadComponent MetalToolchain
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: |
+          brew install autoconf automake bison ccache flex gettext gperf groff libtool make meson ninja pkg-config rsync
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+          python -m venv .build/gpu-tools-venv
+          .build/gpu-tools-venv/bin/pip install meson mako pyyaml packaging
+          # Patch replay commits in throwaway source trees need an identity.
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: kernel-bundles
+          path: .build/kernel/artifacts
+
+      - name: Fetch accepted boot base
+        run: |
+          eval "$(. ./tools/rootfs/boot-ramdisk/accepted-aarch64.env; printf 'release=%s file=%s' "$UML_BOOT_BASE_RELEASE" "$UML_BOOT_BASE_FILE")"
+          mkdir -p ".build/rootfs/$release"
+          gh release download ci-inputs -p "$file" -D ".build/rootfs/$release"
+
+      - name: Restore dependency prefixes
+        id: deps
+        uses: actions/cache@v4
+        with:
+          path: .build/dependencies
+          key: ios-deps-${{ hashFiles('dependencies/**') }}-xcode27
+
+      - name: Build dependency prefixes
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: |
+          for product in apple-gpu-vulkan-experiment ios-network ios-storage ios-compression; do
+            dependencies/prepare.sh --product "$product"
+          done
+          jobs=$(sysctl -n hw.logicalcpu)
+          dependencies/build-apple-gpu.sh --platform ios --jobs "$jobs" \
+            --prefix .build/dependencies/apple-gpu-vulkan-experiment/ios-device-arm64
+          dependencies/build-ios-network.sh --platform ios --jobs "$jobs"
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: .build/ccache-runtime
+          key: ccache-runtime-${{ github.run_id }}
+          restore-keys: ccache-runtime-
+
+      - name: Build runtimes
+        run: |
+          for preset in kernarium-ios-device kernarium-ios-device-android; do
+            cmake --preset "$preset" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            cmake --build --preset "$preset"
+          done
+          ccache -s
+
+      - name: Package frameworks
+        run: Kernarium/scripts/package-ios-frameworks.sh --sdk device
+
+      - name: Build unsigned app
+        run: |
+          xcodebuild -project Kernarium/Kernarium.xcodeproj -scheme Kernarium \
+            -configuration Release -destination generic/platform=iOS \
+            -derivedDataPath .build/ci-derived-data \
+            CODE_SIGNING_ALLOWED=NO build
+          mkdir -p .build/ipa/Payload
+          cp -R .build/ci-derived-data/Build/Products/Release-iphoneos/Kernarium.app .build/ipa/Payload/
+          (cd .build/ipa && zip -qry Kernarium-unsigned.ipa Payload)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kernarium-unsigned-ipa
+          path: .build/ipa/Kernarium-unsigned.ipa
+          if-no-files-found: error

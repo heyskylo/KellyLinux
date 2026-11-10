@@ -226,6 +226,14 @@ in the ignored `GuestHost/Config/Signing.local.xcconfig`
 ([setup](../GuestHost/README.md#signing)); without it a Simulator build works
 unsigned.
 
+GitHub Actions (`.github/workflows/kernarium-ipa.yml`) builds an unsigned
+Kernarium `.ipa` for the iOS device on every push to `main`. Its kernel job
+builds and publishes the Linux and Android bundles under the accepted release
+IDs, and only when a file under `kernel/` changes; other runs reuse the cached
+bundles. The aarch64 boot base archive is not rebuildable byte-for-byte, so it
+comes from the assets of the `ci-inputs` release, and a new accepted base needs
+a new asset there.
+
 Apple builds validate the kernel bridge ABI, page profile, product family and
 `6.18` series of an accepted kernel bundle. They never prepare sources or
 invoke a kernel or Android build, and rootfs bundles are launch inputs.
