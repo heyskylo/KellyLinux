@@ -116,6 +116,9 @@ jobs:
     needs: kernel
     runs-on: macos-26
     timeout-minutes: 240
+    permissions:
+      contents: read
+      issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       CCACHE_DIR: ${{ github.workspace }}/.build/ccache-runtime
@@ -132,7 +135,33 @@ jobs:
             { echo "set the XCODES_USERNAME and XCODES_PASSWORD repository secrets"; exit 1; }
           sudo rm -rf /Applications/Xcode_26.[0-5]*.app
           brew install xcodesorg/made/xcodes aria2
-          xcodes install --latest --experimental-unxip --select --empty-trash
+          # Apple's two-factor code reaches the owner's phone, so the job asks for
+          # it in an issue and reads the owner's reply into xcodes' prompt.
+          issue=$(gh issue create --title "Xcode login code for run ${{ github.run_id }}" \
+            --body "Reply with the 6-digit Apple ID code within 15 minutes if your phone shows one." | sed 's|.*/||')
+          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          mkfifo "$RUNNER_TEMP/code"
+          (
+            exec 3>"$RUNNER_TEMP/code"
+            end=$((SECONDS + 900))
+            while [ $SECONDS -lt $end ]; do
+              reply=$(gh api "repos/$GITHUB_REPOSITORY/issues/$issue/comments?since=$since" \
+                --jq '[.[] | select(.author_association == "OWNER")] | last | "\(.id) \(.body)"' 2>/dev/null || true)
+              code=$(printf '%s' "${reply#* }" | tr -dc 0-9 | cut -c1-6)
+              if [ ${#code} -eq 6 ]; then
+                gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/comments/${reply%% *}" || true
+                printf '%s\n' "$code" >&3
+                break
+              fi
+              sleep 10
+            done
+            # Hold the pipe open until xcodes finishes so it never reads end of file early.
+            while pgrep -x xcodes >/dev/null; do sleep 5; done
+          ) &
+          status=0
+          xcodes install --latest --experimental-unxip --select --empty-trash <"$RUNNER_TEMP/code" || status=$?
+          gh issue close "$issue" || true
+          [ "$status" -eq 0 ] || exit "$status"
           xcodebuild -version | grep -q '^Xcode 27' || { xcodebuild -version; exit 1; }
           xcodebuild -downloadPlatform iOS
           xcodebuild -downloadComponent MetalToolchain
