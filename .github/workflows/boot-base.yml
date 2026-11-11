@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Build the aarch64 boot base archive and attach it to the `ci-inputs`
+# release. Buildroot output is not byte-reproducible, so a new archive is
+# accepted only by committing its size and SHA-256 in
+# tools/rootfs/boot-ramdisk/accepted-aarch64.env.
+name: Boot base
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  boot-base:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install producer tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc cpio curl debootstrap e2fsprogs file gdisk rsync unzip wget
+
+      - name: Build boot base
+        run: |
+          tools/rootfs/starter/build-all.sh --product boot-base-aarch64 \
+            --work "$RUNNER_TEMP/work" --output "$RUNNER_TEMP/release" --jobs "$(nproc)"
+          ls -l "$RUNNER_TEMP/release"
+          sha256sum "$RUNNER_TEMP/release/uml-boot-base-aarch64.cpio.gz"
+
+      - name: Attach to the ci-inputs release
+        run: |
+          gh release view ci-inputs >/dev/null 2>&1 ||
+            gh release create ci-inputs --title "CI inputs" --notes "Accepted inputs the CI build cannot reproduce."
+          gh release upload ci-inputs "$RUNNER_TEMP/release/uml-boot-base-aarch64.cpio.gz" --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boot-base-release
+          path: ${{ runner.temp }}/release
