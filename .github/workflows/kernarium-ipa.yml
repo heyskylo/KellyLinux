@@ -122,10 +122,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode with the iOS 27 SDK
+      # shortcut: hosted images carry no Xcode 27 yet; drop this install once one does.
+      - name: Install Xcode 27
+        env:
+          XCODES_USERNAME: ${{ secrets.XCODES_USERNAME }}
+          XCODES_PASSWORD: ${{ secrets.XCODES_PASSWORD }}
         run: |
-          sudo xcode-select -s "$(ls -d /Applications/Xcode_27*.app | sort -V | tail -1)"
-          xcodebuild -version
+          test -n "$XCODES_USERNAME" && test -n "$XCODES_PASSWORD" ||
+            { echo "set the XCODES_USERNAME and XCODES_PASSWORD repository secrets"; exit 1; }
+          sudo rm -rf /Applications/Xcode_26.[0-5]*.app
+          brew install xcodesorg/made/xcodes aria2
+          xcodes install --latest --experimental-unxip --select --empty-trash
+          xcodebuild -version | grep -q '^Xcode 27' || { xcodebuild -version; exit 1; }
+          xcodebuild -downloadPlatform iOS
           xcodebuild -downloadComponent MetalToolchain
 
       - uses: actions/setup-python@v5
