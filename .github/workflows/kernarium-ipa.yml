@@ -77,7 +77,9 @@ jobs:
         if: steps.bundles.outputs.cache-hit != 'true'
         run: |
           llvm=$(brew --prefix llvm)/bin
-          export UML_KERNEL_CC="ccache $llvm/clang"
+          # ccache's masquerade wrapper runs the first other clang on PATH.
+          export PATH="$llvm:$PATH"
+          export UML_KERNEL_CC="$(brew --prefix ccache)/libexec/clang"
           export UML_KERNEL_LD="$(brew --prefix lld)/bin/ld.lld"
           # The kernel source has paths that differ only by case.
           hdiutil create -size 40g -type SPARSE -fs "Case-sensitive APFS" -volname kernel-src "$RUNNER_TEMP/kernel-src"
