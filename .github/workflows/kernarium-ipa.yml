@@ -134,7 +134,7 @@ jobs:
           test -n "$XCODES_USERNAME" && test -n "$XCODES_PASSWORD" ||
             { echo "set the XCODES_USERNAME and XCODES_PASSWORD repository secrets"; exit 1; }
           sudo rm -rf /Applications/Xcode_26.[0-5]*.app
-          brew install xcodesorg/made/xcodes aria2
+          brew install xcodes aria2
           # Apple's two-factor code reaches the owner's phone, so the job asks for
           # it in an issue and reads the owner's reply into xcodes' prompt.
           issue=$(gh issue create --title "Xcode login code for run ${{ github.run_id }}" \
