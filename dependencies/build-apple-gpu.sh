@@ -584,18 +584,22 @@ MESA_GL_TOOL_PATH="$MESA_TOOL_PATH"
 # ships Bison 2, so an older generator is driven through a translation
 # shim rather than by forking the grammars.
 BISON_VERSION=$("$BISON" --version 2>/dev/null | sed -n '1s/.*) //p')
+# Mesa's PATH is sealed, so the Bison found above reaches it only through this
+# directory, whichever generation it is.
+BISON_SHIM_DIR="$BUILDS/bison-shim"
+mkdir -p -- "$BISON_SHIM_DIR"
 case $BISON_VERSION in
-[3-9].*|[1-9][0-9].*) ;;
+[3-9].*|[1-9][0-9].*)
+	ln -sf -- "$BISON" "$BISON_SHIM_DIR/bison"
+	;;
 *)
-	BISON_SHIM_DIR="$BUILDS/bison-shim"
-	mkdir -p -- "$BISON_SHIM_DIR"
 	sed -e "s|@BISON@|$BISON|g" \
 		"$ROOT_DIR/dependencies/bison2-grammar-shim.sh" \
 		> "$BISON_SHIM_DIR/bison"
 	chmod 0755 "$BISON_SHIM_DIR/bison"
-	MESA_GL_TOOL_PATH="$BISON_SHIM_DIR:$MESA_TOOL_PATH"
 	;;
 esac
+MESA_GL_TOOL_PATH="$BISON_SHIM_DIR:$MESA_TOOL_PATH"
 mesa_setup "$MESA_GL_TOOL_PATH" \
 	"$MESON" setup "$MESA_GL_BUILD" "$SOURCES/Mesa" \
 		--prefix "$NO_HOST_PREFIX" --libdir lib --buildtype release \
