@@ -186,6 +186,19 @@ jobs:
           name: kernel-bundles
           path: .build/kernel/artifacts
 
+      # The release string carries the replay commit's hash, which depends on
+      # who replayed the series and when, so the CI kernel takes its own in
+      # this checkout; the final tree, ABI and family are still checked.
+      - name: Adopt the CI kernels' release strings
+        run: |
+          for env in kernel/mainline-6.18/artifacts/accepted-4k.env kernel/mainline-6.18/artifacts/accepted-android-4k.env; do
+            dir=$(. "./$env"; printf '%s' "$UML_KERNEL_ARTIFACT_DIRECTORY_NAME")
+            release=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["release"])' \
+              ".build/kernel/artifacts/$dir/kernel-artifact.json")
+            sed -i '' "s|^UML_KERNEL_ARTIFACT_RELEASE=.*|UML_KERNEL_ARTIFACT_RELEASE='$release'|" "$env"
+            grep -n RELEASE= "$env"
+          done
+
       - name: Fetch accepted boot base
         run: |
           eval "$(. ./tools/rootfs/boot-ramdisk/accepted-aarch64.env; printf 'release=%s file=%s' "$UML_BOOT_BASE_RELEASE" "$UML_BOOT_BASE_FILE")"

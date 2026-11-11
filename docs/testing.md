@@ -230,7 +230,8 @@ GitHub Actions (`.github/workflows/kernarium-ipa.yml`) builds an unsigned
 Kernarium `.ipa` for the iOS device on every push to `main`. Its kernel job
 builds and publishes the Linux and Android bundles under the accepted release
 IDs, and only when a file under `kernel/` changes; other runs reuse the cached
-bundles. The aarch64 boot base archive is not rebuildable byte-for-byte, so it
+bundles. Its release string names its own replay commit, so the IPA job adopts
+it in its checkout and still checks the final tree, ABI and family. The aarch64 boot base archive is not rebuildable byte-for-byte, so it
 comes from the assets of the `ci-inputs` release, and a new accepted base needs
 a new asset there.
 
