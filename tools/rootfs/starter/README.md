@@ -16,6 +16,11 @@ archives and three raw GPT disks:
   the [Virtio video VA-API driver](../../video/va-v4l2/README.md) with the
   `/etc/chromium.d` file that makes Chromium use it.
 
+The opt-in `alpine-xfce` product, `alpine-<version>-xfce.erofs`, is not a disk:
+it is a bare LZMA EROFS image that Kernarium boots like the KDE image, with
+eudev, LightDM autologin of `uml` into XFCE, and the Kernarium input rules
+([`alpine-xfce-setup`](alpine-xfce-setup)).
+
 An opt-in fourth disk, `debian-13-minimal-armhf.img`, is the 32-bit Arm twin of
 the minimal Debian image for AArch32 guests (see below).
 

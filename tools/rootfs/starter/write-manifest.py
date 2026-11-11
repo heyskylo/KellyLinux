@@ -28,7 +28,7 @@ DEBIAN_IMAGES = {
     "debian-13-minimal-armhf": "debian-13-minimal-armhf.img",
 }
 PRODUCTS = ("boot-base-aarch64", "boot-base-x86_64", "alpine",
-            *DEBIAN_IMAGES)
+            "alpine-xfce", *DEBIAN_IMAGES)
 # What each row of the armhf image's package inventory records.
 ARMHF_INVENTORY_COLUMNS = ["package", "version", "architecture", "size",
                            "sha256"]
@@ -100,11 +100,14 @@ def main() -> int:
                                 "sha256": arguments.buildroot_sha256}
         sources["busybox"] = {"version": arguments.busybox_version,
                               "sha256": arguments.busybox_sha256}
-    if "alpine" in products:
+    if "alpine" in products or "alpine-xfce" in products:
         require("alpine_version", "alpine_sha256")
-        artifacts.append(f"alpine-{arguments.alpine_version}-minimal.img")
         sources["alpine"] = {"version": arguments.alpine_version,
                              "sha256": arguments.alpine_sha256}
+    if "alpine" in products:
+        artifacts.append(f"alpine-{arguments.alpine_version}-minimal.img")
+    if "alpine-xfce" in products:
+        artifacts.append(f"alpine-{arguments.alpine_version}-xfce.erofs")
     debian = [DEBIAN_IMAGES[p] for p in products if p in DEBIAN_IMAGES]
     artifacts += debian
     if debian:
@@ -154,6 +157,9 @@ def main() -> int:
                 entry["architecture"] = "armhf"
                 entry["elf_audit"] = elf_audit(output, name)
             entry["package_inventory"] = inventory
+        if path.suffix == ".erofs":
+            entry["package_inventory"] = sidecar(
+                output, f"{name}.packages.tsv", "package inventory")
         products_manifest[name] = entry
     manifest = {
         "schema_version": 1,
