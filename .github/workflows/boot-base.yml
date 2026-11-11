@@ -43,12 +43,12 @@ jobs:
 
       - name: Attach to the ci-inputs release
         run: |
-          gh release view ci-inputs >/dev/null 2>&1 ||
-            gh release create ci-inputs --title "CI inputs" --notes "Inputs the CI build cannot reproduce."
+          gh release view ci-inputs -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create ci-inputs -R "$GITHUB_REPOSITORY" --title "CI inputs" --notes "Inputs the CI build cannot reproduce."
           cd "$RUNNER_TEMP/release"
           files=$(ls *.cpio.gz *.erofs 2>/dev/null || true)
           test -n "$files"
-          gh release upload ci-inputs $files --clobber
+          gh release upload ci-inputs -R "$GITHUB_REPOSITORY" $files --clobber
 
       - uses: actions/upload-artifact@v4
         with:
