@@ -81,6 +81,10 @@ jobs:
           export PATH="$llvm:$PATH"
           export UML_KERNEL_CC="$(brew --prefix ccache)/libexec/clang"
           export UML_KERNEL_LD="$(brew --prefix lld)/bin/ld.lld"
+          # Apple's ar and friends cannot handle Kbuild's ELF archives.
+          export UML_KERNEL_AR=$llvm/llvm-ar UML_KERNEL_NM=$llvm/llvm-nm \
+            UML_KERNEL_OBJCOPY=$llvm/llvm-objcopy UML_KERNEL_OBJDUMP=$llvm/llvm-objdump \
+            UML_KERNEL_READELF=$llvm/llvm-readelf UML_KERNEL_STRIP=$llvm/llvm-strip
           # The kernel source has paths that differ only by case.
           hdiutil create -size 40g -type SPARSE -fs "Case-sensitive APFS" -volname kernel-src "$RUNNER_TEMP/kernel-src"
           hdiutil attach "$RUNNER_TEMP/kernel-src.sparseimage" -mountpoint "$RUNNER_TEMP/ksrc"
