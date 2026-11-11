@@ -122,19 +122,30 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       CCACHE_DIR: ${{ github.workspace }}/.build/ccache-runtime
+      XCODE_VERSION: "27.2"
     steps:
       - uses: actions/checkout@v4
 
-      # shortcut: hosted images carry no Xcode 27 yet; drop this install once one does.
-      - name: Install Xcode 27
+      # shortcut: hosted images carry no Xcode 27 yet; drop these steps once one does.
+      # Only the download needs the Apple ID, so its .xip is cached and later
+      # runs install it without asking for a code.
+      - name: Restore Xcode download
+        id: xcode
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/xcode-xip
+          key: xcode-xip-${{ env.XCODE_VERSION }}
+
+      - name: Download Xcode ${{ env.XCODE_VERSION }}
+        if: steps.xcode.outputs.cache-hit != 'true'
         env:
           XCODES_USERNAME: ${{ secrets.XCODES_USERNAME }}
           XCODES_PASSWORD: ${{ secrets.XCODES_PASSWORD }}
         run: |
           test -n "$XCODES_USERNAME" && test -n "$XCODES_PASSWORD" ||
             { echo "set the XCODES_USERNAME and XCODES_PASSWORD repository secrets"; exit 1; }
-          sudo rm -rf /Applications/Xcode_26.[0-5]*.app
           brew install xcodes aria2
+          mkdir -p "$RUNNER_TEMP/xcode-xip"
           # Apple's two-factor code reaches the owner's phone, so the job asks for
           # it in an issue and reads the owner's reply into xcodes' prompt.
           issue=$(gh issue create --title "Xcode login code for run ${{ github.run_id }}" \
@@ -161,9 +172,25 @@ jobs:
             echo "no Apple ID code within 15 minutes"
           ) &
           status=0
-          xcodes install --latest --experimental-unxip --select --empty-trash <"$RUNNER_TEMP/code" || status=$?
+          xcodes download "$XCODE_VERSION" --directory "$RUNNER_TEMP/xcode-xip" <"$RUNNER_TEMP/code" || status=$?
           gh issue close "$issue" || true
           [ "$status" -eq 0 ] || exit "$status"
+          ls -l "$RUNNER_TEMP/xcode-xip"
+
+      - name: Save Xcode download
+        if: steps.xcode.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/xcode-xip
+          key: xcode-xip-${{ env.XCODE_VERSION }}
+
+      - name: Install Xcode ${{ env.XCODE_VERSION }}
+        run: |
+          sudo rm -rf /Applications/Xcode_26.[0-5]*.app
+          brew install xcodes
+          xip=$(ls "$RUNNER_TEMP"/xcode-xip/*.xip)
+          xcodes install "$XCODE_VERSION" --path "$xip" --experimental-unxip --select
+          rm -f "$xip"
           xcodebuild -version | grep -q '^Xcode 27' || { xcodebuild -version; exit 1; }
           xcodebuild -downloadPlatform iOS
           xcodebuild -downloadComponent MetalToolchain
@@ -209,7 +236,7 @@ jobs:
 
       - name: Restore dependency prefixes
         id: deps
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: .build/dependencies
           key: ios-deps-${{ hashFiles('dependencies/**') }}-xcode27
@@ -224,6 +251,14 @@ jobs:
           dependencies/build-apple-gpu.sh --platform ios --jobs "$jobs" \
             --prefix .build/dependencies/apple-gpu-vulkan-experiment/ios-device-arm64
           dependencies/build-ios-network.sh --platform ios --jobs "$jobs"
+
+      # Saved at once, so a later failing step does not discard an hour of build.
+      - name: Save dependency prefixes
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .build/dependencies
+          key: ${{ steps.deps.outputs.cache-primary-key }}
 
       - name: Restore compiler cache
         uses: actions/cache@v4
