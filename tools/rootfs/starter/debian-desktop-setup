@@ -46,6 +46,11 @@ xfce)
 		'user-session=xfce' > /etc/lightdm/lightdm.conf.d/50-kernarium.conf
 	[ -f /usr/share/xsessions/xfce.desktop ] ||
 		fail "the image has no XFCE session"
+	# The compositor redraws every frame on the emulated CPU.
+	if [ -f /usr/share/xfwm4/defaults ]; then
+		sed -i 's/^use_compositing=.*/use_compositing=false/' \
+			/usr/share/xfwm4/defaults
+	fi
 	display_manager=lightdm
 	;;
 phosh)
@@ -74,6 +79,9 @@ lock-enabled=false
 
 [org.gnome.desktop.session]
 idle-delay=uint32 0
+
+[org.gnome.desktop.interface]
+enable-animations=false
 OVERRIDE
 	display_manager=greetd
 	;;
@@ -87,6 +95,10 @@ plasma-mobile)
 	install -d -m 0755 /etc/xdg
 	printf '%s\n' '[Daemon]' 'Autolock=false' 'LockOnResume=false' \
 		> /etc/xdg/kscreenlockerrc
+	# Every emulated instruction is slow: no animations, no file indexer.
+	printf '%s\n' '[KDE]' 'AnimationDurationFactor=0' > /etc/xdg/kdeglobals
+	printf '%s\n' '[Basic Settings]' 'Indexing-Enabled=false' \
+		> /etc/xdg/baloofilerc
 	display_manager=sddm
 	;;
 esac
@@ -94,6 +106,26 @@ systemctl enable "$display_manager.service" ssh.service
 ln -sfn "/usr/lib/systemd/system/$display_manager.service" \
 	/etc/systemd/system/display-manager.service
 systemctl set-default graphical.target
+
+# Every guest instruction is emulated, so background work a phone guest has
+# no use for is masked: package refreshes, indexers, modems, Bluetooth,
+# printing, network discovery and firmware updates. The journal stays in RAM.
+for unit in apt-daily.timer apt-daily-upgrade.timer man-db.timer \
+	dpkg-db-backup.timer e2scrub_all.timer fstrim.timer \
+	packagekit.service packagekit-offline-update.service \
+	ModemManager.service bluetooth.service cups.service \
+	cups-browsed.service avahi-daemon.service avahi-daemon.socket \
+	fwupd.service fwupd-refresh.timer; do
+	ln -sfn /dev/null "/etc/systemd/system/$unit"
+done
+install -d -m 0755 /etc/systemd/user
+for unit in tracker-miner-fs-3.service tracker-extract-3.service \
+	localsearch-3.service localsearch-extractor-3.service; do
+	ln -sfn /dev/null "/etc/systemd/user/$unit"
+done
+install -d -m 0755 /etc/systemd/journald.conf.d
+printf '%s\n' '[Journal]' 'Storage=volatile' 'RuntimeMaxUse=16M' \
+	> /etc/systemd/journald.conf.d/50-kellylinux.conf
 
 # Kernarium's console is ttyS0; its getty logs root in, while the shared
 # Debian base's hvc0 getty waits on a device Kernarium lacks.

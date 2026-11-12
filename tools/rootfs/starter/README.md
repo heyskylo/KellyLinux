@@ -26,7 +26,9 @@ NetSurf browser, `gpucheck`, a fastfetch that names the host Apple device
 ([`kellylinux-host`](kellylinux-host)), a root shell on the `ttyS0` console,
 and the Kernarium input rules ([`debian-desktop-setup`](debian-desktop-setup)).
 A `wallpaper.png` beside the setup script, when present, becomes the
-session's default backdrop.
+session's default backdrop. The images mask background work a phone guest has
+no use for, turn off animations, indexers and XFCE's compositor, and keep the
+journal in RAM.
 
 An opt-in fourth disk, `debian-13-minimal-armhf.img`, is the 32-bit Arm twin of
 the minimal Debian image for AArch32 guests (see below).
