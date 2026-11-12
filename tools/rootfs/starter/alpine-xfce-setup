@@ -31,6 +31,9 @@ chmod 0644 /etc/udev/rules.d/59-kernarium-input.rules
 
 adduser -D -s /bin/sh uml
 passwd -d uml
+# The user is the image's owner; root stays locked.
+printf '%s\n' 'permit nopass uml' > /etc/doas.d/kernarium.conf
+chmod 0600 /etc/doas.d/kernarium.conf
 for group in video input audio render; do
 	if getent group "$group" >/dev/null; then
 		addgroup uml "$group"
