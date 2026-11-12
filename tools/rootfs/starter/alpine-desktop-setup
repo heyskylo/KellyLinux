@@ -29,7 +29,9 @@ case "$session" in
 xfce) display_manager=lightdm ;;
 phosh) display_manager=greetd ;;
 esac
-for service in dbus elogind "$display_manager"; do
+# sshd keeps its defaults, no root password login and no empty passwords, so
+# the shell the app forwards on loopback port 2222 opens once uml has one.
+for service in dbus elogind sshd "$display_manager"; do
 	rc-update add "$service" default
 done
 
@@ -76,6 +78,15 @@ phosh)
 	# greetd starts Phosh as uml at boot and again after a logout, so the
 	# image needs no greeter.
 	[ -x /usr/bin/phosh-session ] || fail "the image has no Phosh session"
+	# uml has no password, so a lock screen could never be unlocked.
+	cat > /usr/share/glib-2.0/schemas/80-kellylinux-lock.gschema.override <<'OVERRIDE'
+[org.gnome.desktop.screensaver]
+lock-enabled=false
+
+[org.gnome.desktop.session]
+idle-delay=uint32 0
+OVERRIDE
+	glib-compile-schemas /usr/share/glib-2.0/schemas
 	install -d -m 0755 /etc/greetd
 	cat > /etc/greetd/config.toml <<'CONFIG'
 [terminal]
@@ -98,6 +109,20 @@ sed -i 's/^hvc0::respawn:.* hvc0 vt100$/ttyS0::respawn:\/sbin\/getty -n -l \/sbi
 grep -q '^ttyS0::respawn:' /etc/inittab ||
 	fail "cannot move the console getty to ttyS0"
 grep -qx ttyS0 /etc/securetty || printf '%s\n' ttyS0 >> /etc/securetty
+
+# gpucheck reports in one line whether Mesa reaches the GPU or draws in
+# software, the way the session's compositor opens it.
+cat > /usr/local/bin/gpucheck <<'CHECK'
+#!/bin/sh
+renderer=$(eglinfo -B -p gbm 2>/dev/null |
+	sed -n 's/^OpenGL.*renderer: *//p' | head -n 1)
+case "$renderer" in
+'') echo "no GPU renderer found" ;;
+*llvmpipe*|*softpipe*) echo "software rendering: $renderer" ;;
+*) echo "GPU accelerated: $renderer" ;;
+esac
+CHECK
+chmod 0755 /usr/local/bin/gpucheck
 
 # fastfetch names the Apple device as the host, and the display after the
 # renderer; the rest is fastfetch's default module list.

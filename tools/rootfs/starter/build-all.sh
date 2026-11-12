@@ -429,7 +429,8 @@ build_alpine_desktop()
 	as_root chroot "$root" /sbin/apk add --no-cache eudev udev-init-scripts \
 		udev-init-scripts-openrc dbus dbus-openrc elogind polkit-elogind \
 		mesa-dri-gallium mesa-egl mesa-gbm $packages font-dejavu \
-		adwaita-icon-theme doas sudo netsurf fastfetch nano htop curl wget zsh
+		adwaita-icon-theme doas sudo netsurf fastfetch nano htop curl wget zsh \
+		openssh mesa-utils
 	as_root install -m 0755 "$SCRIPT_DIR/alpine-desktop-setup" "$root/tmp/alpine-desktop-setup"
 	as_root install -m 0755 "$SCRIPT_DIR/kellylinux-host" "$root/tmp/kellylinux-host"
 	if [ -f "$SCRIPT_DIR/wallpaper.png" ]; then
