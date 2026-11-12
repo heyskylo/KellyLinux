@@ -17,6 +17,10 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.games</string>
+	<key>GCSupportsGameMode</key>
+	<true/>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

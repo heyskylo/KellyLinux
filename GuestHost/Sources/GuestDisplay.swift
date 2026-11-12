@@ -59,6 +59,10 @@ struct GuestDisplayView: UIViewControllerRepresentable {
 
 
 final class GuestDisplayViewController: UIViewController {
+    /// Told when a display controller loads its view, so an application
+    /// that shows the guest on another screen can take the display along.
+    static var didLoad: (@MainActor (GuestDisplayViewController) -> Void)?
+
     let metalView: GuestMetalView
     private var resizeHold = GuestResizeHold()
     private var sceneGeometryObservation: NSKeyValueObservation?
@@ -68,13 +72,38 @@ final class GuestDisplayViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
     }
 
+    /// Moves the guest display into `container`, a view on another screen,
+    /// or back into this controller's own view when it is nil. The guest is
+    /// resized to the screen it lands on.
+    func hostMetalView(in container: UIView?) {
+        let target = container ?? view!
+        guard metalView.superview !== target else { return }
+        metalView.beginHostResize()
+        metalView.removeFromSuperview()
+        metalView.frame = target.bounds
+        target.insertSubview(metalView, at: 0)
+        target.layoutIfNeeded()
+        metalView.finishHostResize()
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // The display is a subview, so it can move to another screen and back.
     override func loadView() {
-        view = metalView
+        let container = UIView()
+        container.backgroundColor = .black
+        metalView.frame = container.bounds
+        metalView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        container.addSubview(metalView)
+        view = container
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        Self.didLoad?(self)
     }
 
     override func viewWillTransition(
@@ -223,26 +252,32 @@ final class GuestMetalView: MTKView, UIKeyInput {
     }
 
     func insertText(_ text: String) {
-        for character in text {
-            guard let stroke = LinuxKeyboard.stroke(for: character) else {
-                print("Kernarium: unsupported keyboard character \(character)")
-                continue
-            }
-            if stroke.shifted {
-                sendKey(code: LinuxKeyboard.leftShift, pressed: true)
-            }
-            sendKey(code: stroke.code, pressed: true)
-            sendKey(code: stroke.code, pressed: false)
-            if stroke.shifted {
-                sendKey(code: LinuxKeyboard.leftShift, pressed: false)
-            }
-        }
+        GuestKeyboardInput.type(text)
     }
 
     func deleteBackward() {
-        sendKey(code: LinuxKeyboard.backspace, pressed: true)
-        sendKey(code: LinuxKeyboard.backspace, pressed: false)
+        GuestKeyboardInput.backspace()
     }
+
+    /// One contact the host places itself, such as a touchpad's click at its
+    /// cursor, at `point` in this view's coordinates.
+    func sendPointer(_ phase: GuestPointerPhase, at point: CGPoint) {
+        let id = ObjectIdentifier(Self.pointerToken)
+        switch phase {
+        case .began:
+            sendTouchEvents(touchContacts.begin(
+                id, at: point, geometry: touchGeometry()))
+        case .moved:
+            sendTouchEvents(touchContacts.move(
+                id, through: [point], geometry: touchGeometry()))
+        case .ended:
+            sendTouchEvents(touchContacts.end(
+                id, at: point, geometry: touchGeometry()))
+        }
+    }
+
+    private static let pointerToken = PointerToken()
+    private final class PointerToken {}
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
@@ -327,7 +362,35 @@ final class GuestMetalView: MTKView, UIKeyInput {
         if window == nil { cancelTrackedTouches() }
     }
 
-    private func sendKey(code: UInt16, pressed: Bool) {
+}
+
+enum GuestPointerPhase {
+    case began
+    case moved
+    case ended
+}
+
+/// Text typed on a host keyboard, sent to the guest as Linux key strokes.
+enum GuestKeyboardInput {
+    static func type(_ text: String) {
+        for character in text {
+            guard let stroke = LinuxKeyboard.stroke(for: character) else {
+                print("Kernarium: unsupported keyboard character \(character)")
+                continue
+            }
+            if stroke.shifted { send(LinuxKeyboard.leftShift, pressed: true) }
+            send(stroke.code, pressed: true)
+            send(stroke.code, pressed: false)
+            if stroke.shifted { send(LinuxKeyboard.leftShift, pressed: false) }
+        }
+    }
+
+    static func backspace() {
+        send(LinuxKeyboard.backspace, pressed: true)
+        send(LinuxKeyboard.backspace, pressed: false)
+    }
+
+    private static func send(_ code: UInt16, pressed: Bool) {
         kernarium_runtime_loader_send_key(code, pressed ? 1 : 0)
     }
 }

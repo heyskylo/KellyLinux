@@ -198,6 +198,13 @@ Kernarium attaches:
 - a Virtio-GPU Metal framebuffer; and
 - the guest's `ttyS0` stream mirrored to a terminal view.
 
+A Linux guest's SLiRP link forwards the device's loopback port 2222 to the
+guest's port 22, unless `KERNARIUM_HOST_FORWARD` names another forward. While
+an external screen (AirPlay) is connected, the framebuffer moves to it, the
+guest is resized to that screen, and the phone becomes a touchpad and
+keyboard: the application draws a cursor there and sends each press as a
+touch at the cursor (`ExternalDisplay.swift`).
+
 Point display mode maps safe-area points to guest pixels at 160 DPI; Retina
 mode multiplies both geometry and density by `nativeScale`. The GPU's EDID and
 Android's logical density on the kernel command line use that launch geometry.

@@ -4,7 +4,12 @@ import SwiftUI
 
 @main
 struct KernariumApp: App {
+    @UIApplicationDelegateAdaptor(KellyLinuxAppDelegate.self) private var appDelegate
+
     init() {
+        // Before any display controller loads, so it can be taken to an
+        // external screen that is already connected.
+        _ = ExternalDisplay.shared
         // Before any view: the display and the terminal compile Metal
         // pipelines as they are created, and that reads the shader cache.
         MetalShaderCache.removeIfBloatedBeforeFirstUse()

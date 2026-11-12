@@ -12,6 +12,7 @@ struct ContentView: View {
     @ObservedObject private var backgroundSession = BackgroundSession.shared
     @ObservedObject private var backgroundJob = BackgroundJob.shared
     @ObservedObject private var spacePause = GuestSpacePause.shared
+    @ObservedObject private var externalDisplay = ExternalDisplay.shared
     /// Whether the running guest chose the keep-running mode, which is what
     /// offers the button that starts its job.
     @State private var keepRunningChosen = false
@@ -34,8 +35,10 @@ struct ContentView: View {
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
 
+                // On an external screen the touchpad below holds the keyboard.
                 GuestDisplayView(
-                    keyboardVisible: $framebufferKeyboardVisible,
+                    keyboardVisible: externalDisplay.isConnected
+                        ? .constant(false) : $framebufferKeyboardVisible,
                     retinaMode: EmulatorLauncher.shared.retinaMode
                 ) { view, geometry in
                     EmulatorLauncher.shared.start(view: view, geometry: geometry)
@@ -45,6 +48,12 @@ struct ContentView: View {
                 .accessibilityHidden(guestViewMode != .framebuffer)
                 .accessibilityIdentifier("framebufferView")
                 .ignoresSafeArea()
+
+                if externalDisplay.isConnected && guestViewMode == .framebuffer {
+                    TouchpadView(keyboardVisible: framebufferKeyboardVisible)
+                        .ignoresSafeArea()
+                        .accessibilityLabel("Touchpad")
+                }
 
                 SerialConsoleView(
                     controller: serialConsole,
