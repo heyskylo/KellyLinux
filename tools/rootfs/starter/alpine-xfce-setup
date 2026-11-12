@@ -20,6 +20,13 @@ for service in dbus elogind lightdm; do
 	rc-update add "$service" default
 done
 
+# Busybox ping opens an unprivileged ICMP socket, which the kernel allows only
+# to the groups this range names.
+install -d -m 0755 /etc/sysctl.d
+printf '%s\n' 'net.ipv4.ping_group_range = 0 2147483647' \
+	> /etc/sysctl.d/50-kernarium-ping.conf
+[ -e /etc/runlevels/boot/sysctl ] || rc-update add sysctl boot
+
 install -d -m 0755 /etc/udev/rules.d
 cat > /etc/udev/rules.d/59-kernarium-input.rules <<'RULES'
 ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Kernarium Touchscreen", ENV{ID_INPUT}="1", ENV{ID_INPUT_TOUCHSCREEN}="1"
