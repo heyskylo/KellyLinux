@@ -77,6 +77,7 @@
 #include <malloc/malloc.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 #include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
@@ -1343,6 +1344,17 @@ private:
         arguments.emplace_back("console=tty0");
         arguments.emplace_back("console=ttyS0");
         arguments.emplace_back(fbconFontArgument(request_.dotsPerInch));
+        /* The host's model identifier, such as iPhone14,5, for the guest to
+         * name the machine it runs on. The kernel ignores a dotted
+         * parameter that names no module and keeps it in /proc/cmdline. */
+        {
+            std::array<char, 64> machine {};
+            size_t machineSize = machine.size() - 1;
+            if (sysctlbyname("hw.machine", machine.data(), &machineSize,
+                    nullptr, 0) == 0 && machine[0] != '\0')
+                arguments.emplace_back(
+                    std::string {"kellylinux.model="} + machine.data());
+        }
         arguments.emplace_back(boot->console->kernelArgument());
         arguments.emplace_back("ubd1=" + request_.overlayPath);
 #endif

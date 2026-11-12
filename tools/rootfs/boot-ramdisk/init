@@ -202,7 +202,7 @@ mount_overlay_root()
 		overlay /newroot || fail "cannot mount the overlay"
 	[ "$upper" = ext4 ] || return 0
 	for name in docker containerd; do
-		mkdir -m 0711 "/state/$name" && \
+		mkdir -p -m 0711 "/state/$name" && \
 			mkdir -p "/newroot/var/lib/$name" && \
 			mount -o bind "/state/$name" "/newroot/var/lib/$name" || \
 			fail "cannot bind the $name state"
