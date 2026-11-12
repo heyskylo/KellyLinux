@@ -93,7 +93,9 @@ final class ExternalDisplay: ObservableObject {
 }
 
 /// The scene iOS gives the application for an external screen. It shows the
-/// guest display there, and mirrors nothing.
+/// guest display there, and mirrors nothing. Info.plist names it by its
+/// Objective-C name for the external-display role.
+@objc(KellyLinuxExternalDisplaySceneDelegate)
 final class ExternalDisplaySceneDelegate: NSObject, UIWindowSceneDelegate {
     var window: UIWindow?
 
@@ -103,6 +105,7 @@ final class ExternalDisplaySceneDelegate: NSObject, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         guard let scene = scene as? UIWindowScene else { return }
+        print("Kelly Linux: external screen connected, \(scene.screen.bounds.size)")
         let window = UIWindow(windowScene: scene)
         let root = UIViewController()
         root.view.backgroundColor = .black
@@ -127,11 +130,13 @@ final class KellyLinuxAppDelegate: NSObject, UIApplicationDelegate {
         options: UIScene.ConnectionOptions
     ) -> UISceneConfiguration {
         let role = connectingSceneSession.role
-        let configuration = UISceneConfiguration(name: nil, sessionRole: role)
         if role == .windowExternalDisplayNonInteractive {
+            let configuration = UISceneConfiguration(
+                name: "External Display", sessionRole: role)
             configuration.delegateClass = ExternalDisplaySceneDelegate.self
+            return configuration
         }
-        return configuration
+        return UISceneConfiguration(name: nil, sessionRole: role)
     }
 }
 

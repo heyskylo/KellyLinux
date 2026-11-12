@@ -16,6 +16,18 @@
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleExternalDisplayNonInteractive</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>External Display</string>
+					<key>UISceneDelegateClassName</key>
+					<string>KellyLinuxExternalDisplaySceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
 	</dict>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.games</string>
