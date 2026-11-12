@@ -247,6 +247,12 @@ public:
             throw std::bad_alloc {};
 #ifndef UML_APP_STORE_RUNTIME
         const char* forwarding = std::getenv("KERNARIUM_HOST_FORWARD");
+#if !KERNARIUM_RUNTIME_ANDROID_GUEST
+        /* A Linux guest's sshd answers on the device's loopback port 2222,
+         * which a computer reaches over USB (iproxy) and no network can. */
+        if (forwarding == nullptr)
+            forwarding = "tcp:127.0.0.1:2222-22";
+#endif
 #else
         /* An App Store runtime reads no environment knob. */
         const char* forwarding = nullptr;
