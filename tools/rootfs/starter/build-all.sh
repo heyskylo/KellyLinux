@@ -23,7 +23,7 @@ DEBIAN_MIRROR=http://deb.debian.org/debian
 # provides. --exclude cannot drop it, because the dependency pulls it back.
 ARMHF_INCLUDE=systemd-sysv,systemd-resolved,udev,kmod,dbus,ca-certificates,libbpf1
 DEFAULT_PRODUCTS="boot-base-aarch64 boot-base-x86_64 alpine debian-13-minimal debian-13-plasma-wayland"
-KNOWN_PRODUCTS="$DEFAULT_PRODUCTS debian-13-minimal-armhf alpine-xfce"
+KNOWN_PRODUCTS="$DEFAULT_PRODUCTS debian-13-minimal-armhf alpine-xfce alpine-phosh"
 
 fail()
 {
@@ -42,11 +42,12 @@ must be absolute and distinct outside the source tree. The output path must
 not exist; the completed release directory is published atomically.
 
 --product builds only the named products, each at most once; by default the
-release holds every product but the armhf and XFCE ones:
+release holds every product but the armhf, XFCE and Phosh ones:
   boot-base-aarch64 boot-base-x86_64 alpine debian-13-minimal
-  debian-13-plasma-wayland debian-13-minimal-armhf alpine-xfce
+  debian-13-plasma-wayland debian-13-minimal-armhf alpine-xfce alpine-phosh
 
-alpine-xfce is a bare EROFS image for Kernarium; it needs mkfs.erofs.
+alpine-xfce and alpine-phosh are bare EROFS images for Kernarium; they need
+mkfs.erofs.
 
 debian-13-minimal-armhf runs ARM programs under qemu-arm (Debian's qemu-user)
 in private namespaces.
@@ -119,7 +120,7 @@ producer_require_host aarch64 chroot cpio curl debootstrap e2fsck gzip make \
 if wants debian-13-minimal-armhf; then
 	sudo -n -- sh "$SCRIPT_DIR/armhf-run.sh" --check
 fi
-if wants alpine-xfce; then
+if wants alpine-xfce || wants alpine-phosh; then
 	producer_require_host aarch64 mkfs.erofs
 fi
 
@@ -399,34 +400,45 @@ build_alpine()
 	cp "$work_dir/alpine.packages.tsv" "$destination.packages.tsv"
 }
 
-# Alpine with XFCE as a bare LZMA EROFS image: Kernarium mounts a whole image
-# as its read-only root, so it carries no partition table.
-build_alpine_xfce()
+# Alpine with a desktop session ($1: xfce or phosh) as a bare LZMA EROFS
+# image: Kernarium mounts a whole image as its read-only root, so it carries
+# no partition table.
+build_alpine_desktop()
 {
-	printf '%s\n' "==> Building Alpine $ALPINE_VERSION XFCE EROFS image"
+	session=$1
+	case "$session" in
+	xfce)
+		packages="xorg-server xf86-input-libinput lightdm lightdm-gtk-greeter
+			xfce4 xfce4-terminal"
+		;;
+	phosh)
+		packages="phosh phoc squeekboard gnome-console greetd greetd-openrc
+			xwayland"
+		;;
+	esac
+	printf '%s\n' "==> Building Alpine $ALPINE_VERSION $session EROFS image"
 	archive=$sources_dir/alpine-minirootfs-$ALPINE_VERSION-aarch64.tar.gz
 	download_checked \
 		"https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64/$(basename "$archive")" \
 		"$ALPINE_SHA256" "$archive"
-	root=$roots_dir/alpine-xfce
+	root=$roots_dir/alpine-$session
 	reset_root_directory "$root"
 	as_root tar --numeric-owner -C "$root" -xzf "$archive"
 	configure_alpine "$root"
 	as_root cp -L /etc/resolv.conf "$root/etc/resolv.conf"
 	as_root chroot "$root" /sbin/apk add --no-cache eudev udev-init-scripts \
 		udev-init-scripts-openrc dbus dbus-openrc elogind polkit-elogind \
-		xorg-server xf86-input-libinput mesa-dri-gallium mesa-egl mesa-gbm \
-		lightdm lightdm-gtk-greeter xfce4 xfce4-terminal font-dejavu \
+		mesa-dri-gallium mesa-egl mesa-gbm $packages font-dejavu \
 		adwaita-icon-theme doas sudo netsurf fastfetch nano htop curl wget zsh
-	as_root install -m 0755 "$SCRIPT_DIR/alpine-xfce-setup" "$root/tmp/alpine-xfce-setup"
+	as_root install -m 0755 "$SCRIPT_DIR/alpine-desktop-setup" "$root/tmp/alpine-desktop-setup"
 	as_root install -m 0755 "$SCRIPT_DIR/kellylinux-host" "$root/tmp/kellylinux-host"
 	if [ -f "$SCRIPT_DIR/wallpaper.png" ]; then
 		as_root install -m 0644 "$SCRIPT_DIR/wallpaper.png" "$root/tmp/wallpaper.png"
 	fi
-	as_root chroot "$root" /bin/sh /tmp/alpine-xfce-setup
+	as_root chroot "$root" /bin/sh /tmp/alpine-desktop-setup "$session"
 	as_root rm -rf -- "$root/var/cache/apk"/* "$root/tmp"/* "$root/var/tmp"/* \
 		"$root/etc/resolv.conf"
-	destination=$(artifact_path alpine-$ALPINE_VERSION-xfce.erofs)
+	destination=$(artifact_path "alpine-$ALPINE_VERSION-$session.erofs")
 	as_root chroot "$root" /sbin/apk info -v | sort > "$destination.packages.tsv"
 	as_root mkfs.erofs -zlzma "$destination" "$root"
 	as_root chown "$owner_uid:$owner_gid" "$destination"
@@ -806,7 +818,10 @@ if wants alpine; then
 	build_alpine
 fi
 if wants alpine-xfce; then
-	build_alpine_xfce
+	build_alpine_desktop xfce
+fi
+if wants alpine-phosh; then
+	build_alpine_desktop phosh
 fi
 if wants debian-13-minimal; then
 	build_debian_minimal
@@ -836,7 +851,7 @@ if wants boot-base-aarch64 || wants boot-base-x86_64; then
 		--busybox-version "$BUSYBOX_VERSION" \
 		--busybox-sha256 "$BUSYBOX_SHA256"
 fi
-if wants alpine || wants alpine-xfce; then
+if wants alpine || wants alpine-xfce || wants alpine-phosh; then
 	set -- "$@" --alpine-version "$ALPINE_VERSION" \
 		--alpine-sha256 "$ALPINE_SHA256"
 fi

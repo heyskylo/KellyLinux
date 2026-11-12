@@ -13,6 +13,10 @@ on:
         description: Space-separated starter products
         default: boot-base-aarch64
         required: true
+      release:
+        description: Release tag the images are attached to
+        default: ci-inputs
+        required: true
 
 permissions:
   contents: write
@@ -24,6 +28,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       PRODUCTS: ${{ inputs.products }}
+      RELEASE: ${{ inputs.release }}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,14 +46,14 @@ jobs:
           ls -l "$RUNNER_TEMP/release"
           (cd "$RUNNER_TEMP/release" && sha256sum *)
 
-      - name: Attach to the ci-inputs release
+      - name: Attach to the release
         run: |
-          gh release view ci-inputs -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
-            gh release create ci-inputs -R "$GITHUB_REPOSITORY" --title "CI inputs" --notes "Inputs the CI build cannot reproduce."
+          gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$RELEASE" -R "$GITHUB_REPOSITORY" --title "$RELEASE" --notes "Starter images built by the boot-base workflow."
           cd "$RUNNER_TEMP/release"
           files=$(ls *.cpio.gz *.erofs 2>/dev/null || true)
           test -n "$files"
-          gh release upload ci-inputs -R "$GITHUB_REPOSITORY" $files --clobber
+          gh release upload "$RELEASE" -R "$GITHUB_REPOSITORY" $files --clobber
 
       - uses: actions/upload-artifact@v4
         with:

@@ -1,9 +1,18 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Desktop policy of the Alpine XFCE image. build-all.sh runs it once as root in
-# the image root after the desktop packages are installed. README.md beside
-# this script owns the contract.
+# Desktop policy of the Alpine XFCE and Phosh images; the argument names the
+# session. build-all.sh runs it once as root in the image root after the
+# desktop packages are installed. README.md beside this script owns the
+# contract.
 set -eu
+
+session=$1
+fail()
+{
+	echo "alpine-$session setup: $*" >&2
+	exit 1
+}
+case "$session" in xfce|phosh) ;; *) fail "unknown session" ;; esac
 
 # Xorg finds and classifies input devices through udev, so eudev replaces the
 # minimal image's mdevd. OpenRC counts UML among containers and would skip
@@ -16,7 +25,11 @@ for service in udev udev-trigger udev-settle; do
 	rc-update add "$service" sysinit
 done
 rc-update add udev-postmount default
-for service in dbus elogind lightdm; do
+case "$session" in
+xfce) display_manager=lightdm ;;
+phosh) display_manager=greetd ;;
+esac
+for service in dbus elogind "$display_manager"; do
 	rc-update add "$service" default
 done
 
@@ -51,13 +64,40 @@ for group in wheel video input audio render; do
 	fi
 done
 
-install -d -m 0755 /etc/lightdm/lightdm.conf.d
-printf '%s\n' '[Seat:*]' 'autologin-user=uml' 'autologin-session=xfce' \
-	'user-session=xfce' > /etc/lightdm/lightdm.conf.d/50-kernarium.conf
-[ -f /usr/share/xsessions/xfce.desktop ] || {
-	echo "alpine-xfce setup: the image has no XFCE session" >&2
-	exit 1
-}
+case "$session" in
+xfce)
+	install -d -m 0755 /etc/lightdm/lightdm.conf.d
+	printf '%s\n' '[Seat:*]' 'autologin-user=uml' 'autologin-session=xfce' \
+		'user-session=xfce' > /etc/lightdm/lightdm.conf.d/50-kernarium.conf
+	[ -f /usr/share/xsessions/xfce.desktop ] ||
+		fail "the image has no XFCE session"
+	;;
+phosh)
+	# greetd starts Phosh as uml at boot and again after a logout, so the
+	# image needs no greeter.
+	[ -x /usr/bin/phosh-session ] || fail "the image has no Phosh session"
+	install -d -m 0755 /etc/greetd
+	cat > /etc/greetd/config.toml <<'CONFIG'
+[terminal]
+vt = "next"
+
+[default_session]
+command = "phosh-session"
+user = "uml"
+
+[initial_session]
+command = "phosh-session"
+user = "uml"
+CONFIG
+	;;
+esac
+
+# Kernarium's console is ttyS0, not the hvc0 of the shared Alpine setup;
+# init respawning a getty on a missing hvc0 floods that console.
+sed -i 's/^hvc0::respawn:.* hvc0 vt100$/ttyS0::respawn:\/sbin\/getty -n -l \/sbin\/autologin-root 115200 ttyS0 vt100/' /etc/inittab
+grep -q '^ttyS0::respawn:' /etc/inittab ||
+	fail "cannot move the console getty to ttyS0"
+grep -qx ttyS0 /etc/securetty || printf '%s\n' ttyS0 >> /etc/securetty
 
 # fastfetch names the Apple device as the host, and the display after the
 # renderer; the rest is fastfetch's default module list.
@@ -77,24 +117,36 @@ cat > /etc/xdg/fastfetch/config.jsonc <<'CONFIG'
 }
 CONFIG
 
-# A wallpaper the build supplies replaces xfdesktop's compiled-in default
-# backdrop, so every monitor and workspace shows it without per-output keys.
+# A wallpaper the build supplies becomes the session's default backdrop. XFCE
+# gets it in place of xfdesktop's compiled-in default, so every monitor and
+# workspace shows it without per-output keys; Phosh reads GNOME's setting.
 if [ -f /tmp/wallpaper.png ]; then
-	install -D -m 0644 /tmp/wallpaper.png /usr/share/backgrounds/kellylinux.png
-	defaults=$(grep -rahoE '/usr/share/backgrounds/xfce/[A-Za-z0-9._-]+' \
-		/usr/bin/xfdesktop* /usr/lib/libxfce4* /usr/lib/xfce4 2>/dev/null |
-		sort -u)
-	[ -n "$defaults" ] || {
-		echo "alpine-xfce setup: cannot find xfdesktop's default backdrop" >&2
-		exit 1
-	}
-	for default in $defaults; do
-		install -d -m 0755 "${default%/*}"
-		ln -sf /usr/share/backgrounds/kellylinux.png "$default"
-	done
+	wallpaper=/usr/share/backgrounds/kellylinux.png
+	install -D -m 0644 /tmp/wallpaper.png "$wallpaper"
+	case "$session" in
+	xfce)
+		defaults=$(grep -rahoE '/usr/share/backgrounds/xfce/[A-Za-z0-9._-]+' \
+			/usr/bin/xfdesktop* /usr/lib/libxfce4* /usr/lib/xfce4 2>/dev/null |
+			sort -u)
+		[ -n "$defaults" ] || fail "cannot find xfdesktop's default backdrop"
+		for default in $defaults; do
+			install -d -m 0755 "${default%/*}"
+			ln -sf "$wallpaper" "$default"
+		done
+		;;
+	phosh)
+		cat > /usr/share/glib-2.0/schemas/90-kellylinux.gschema.override <<OVERRIDE
+[org.gnome.desktop.background]
+picture-uri='file://$wallpaper'
+picture-uri-dark='file://$wallpaper'
+picture-options='zoom'
+OVERRIDE
+		glib-compile-schemas /usr/share/glib-2.0/schemas
+		;;
+	esac
 fi
 
 # Kernarium mounts the image read-only beneath a fresh overlay from its own
 # /init, so the image mounts no root of its own.
 printf '%s\n' '# The root is the overlay the per-run /init mounts.' > /etc/fstab
-printf '%s\n' alpine-xfce > /etc/hostname
+printf '%s\n' "alpine-$session" > /etc/hostname
