@@ -417,8 +417,12 @@ build_alpine_xfce()
 		udev-init-scripts-openrc dbus dbus-openrc elogind polkit-elogind \
 		xorg-server xf86-input-libinput mesa-dri-gallium mesa-egl mesa-gbm \
 		lightdm lightdm-gtk-greeter xfce4 xfce4-terminal font-dejavu \
-		adwaita-icon-theme doas netsurf fastfetch nano htop curl wget zsh
+		adwaita-icon-theme doas sudo netsurf fastfetch nano htop curl wget zsh
 	as_root install -m 0755 "$SCRIPT_DIR/alpine-xfce-setup" "$root/tmp/alpine-xfce-setup"
+	as_root install -m 0755 "$SCRIPT_DIR/kellylinux-host" "$root/tmp/kellylinux-host"
+	if [ -f "$SCRIPT_DIR/wallpaper.png" ]; then
+		as_root install -m 0644 "$SCRIPT_DIR/wallpaper.png" "$root/tmp/wallpaper.png"
+	fi
 	as_root chroot "$root" /bin/sh /tmp/alpine-xfce-setup
 	as_root rm -rf -- "$root/var/cache/apk"/* "$root/tmp"/* "$root/var/tmp"/* \
 		"$root/etc/resolv.conf"

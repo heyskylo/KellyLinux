@@ -1,0 +1,40 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Name the Apple device the guest runs on, from the model identifier the app
+# passes as kellylinux.model; fastfetch prints it as the host.
+model=$(sed -n 's/.*kellylinux\.model=\([^ ]*\).*/\1/p' /proc/cmdline)
+case $model in
+iPhone12,1) name="iPhone 11 (A13 Bionic)" ;;
+iPhone12,3) name="iPhone 11 Pro (A13 Bionic)" ;;
+iPhone12,5) name="iPhone 11 Pro Max (A13 Bionic)" ;;
+iPhone12,8) name="iPhone SE 2nd gen (A13 Bionic)" ;;
+iPhone13,1) name="iPhone 12 mini (A14 Bionic)" ;;
+iPhone13,2) name="iPhone 12 (A14 Bionic)" ;;
+iPhone13,3) name="iPhone 12 Pro (A14 Bionic)" ;;
+iPhone13,4) name="iPhone 12 Pro Max (A14 Bionic)" ;;
+iPhone14,2) name="iPhone 13 Pro (A15 Bionic)" ;;
+iPhone14,3) name="iPhone 13 Pro Max (A15 Bionic)" ;;
+iPhone14,4) name="iPhone 13 mini (A15 Bionic)" ;;
+iPhone14,5) name="iPhone 13 (A15 Bionic)" ;;
+iPhone14,6) name="iPhone SE 3rd gen (A15 Bionic)" ;;
+iPhone14,7) name="iPhone 14 (A15 Bionic)" ;;
+iPhone14,8) name="iPhone 14 Plus (A15 Bionic)" ;;
+iPhone15,2) name="iPhone 14 Pro (A16 Bionic)" ;;
+iPhone15,3) name="iPhone 14 Pro Max (A16 Bionic)" ;;
+iPhone15,4) name="iPhone 15 (A16 Bionic)" ;;
+iPhone15,5) name="iPhone 15 Plus (A16 Bionic)" ;;
+iPhone16,1) name="iPhone 15 Pro (A17 Pro)" ;;
+iPhone16,2) name="iPhone 15 Pro Max (A17 Pro)" ;;
+iPhone17,1) name="iPhone 16 Pro (A18 Pro)" ;;
+iPhone17,2) name="iPhone 16 Pro Max (A18 Pro)" ;;
+iPhone17,3) name="iPhone 16 (A18)" ;;
+iPhone17,4) name="iPhone 16 Plus (A18)" ;;
+iPhone17,5) name="iPhone 16e (A18)" ;;
+iPhone18,1) name="iPhone 17 Pro (A19 Pro)" ;;
+iPhone18,2) name="iPhone 17 Pro Max (A19 Pro)" ;;
+iPhone18,3) name="iPhone 17 (A19)" ;;
+iPhone18,4) name="iPhone Air (A19 Pro)" ;;
+'') name="Kelly Linux" ;;
+*) name=$model ;;
+esac
+printf '%s\n' "$name"

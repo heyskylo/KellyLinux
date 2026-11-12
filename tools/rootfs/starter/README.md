@@ -18,9 +18,12 @@ archives and three raw GPT disks:
 
 The opt-in `alpine-xfce` product, `alpine-<version>-xfce.erofs`, is not a disk:
 it is a bare LZMA EROFS image that Kernarium boots like the KDE image, with
-eudev, LightDM autologin of `uml` into XFCE, passwordless `doas` for `uml`,
-the NetSurf browser, and the Kernarium input rules
-([`alpine-xfce-setup`](alpine-xfce-setup)).
+eudev, LightDM autologin of `uml` into XFCE, a root without a password and
+passwordless `doas` and `sudo` for `uml`, the NetSurf browser, a fastfetch that
+names the host Apple device ([`kellylinux-host`](kellylinux-host)), and the
+Kernarium input rules ([`alpine-xfce-setup`](alpine-xfce-setup)). A
+`wallpaper.png` beside the setup script, when present, becomes the XFCE
+default backdrop.
 
 An opt-in fourth disk, `debian-13-minimal-armhf.img`, is the 32-bit Arm twin of
 the minimal Debian image for AArch32 guests (see below).

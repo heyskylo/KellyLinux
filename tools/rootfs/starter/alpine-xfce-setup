@@ -38,10 +38,14 @@ chmod 0644 /etc/udev/rules.d/59-kernarium-input.rules
 
 adduser -D -s /bin/sh uml
 passwd -d uml
-# The user is the image's owner; root stays locked.
+# The guest is a single-owner sandbox inside the app, so root takes no
+# password: su, sudo and doas all reach it from uml.
+passwd -d root
 printf '%s\n' 'permit nopass uml' > /etc/doas.d/kernarium.conf
 chmod 0600 /etc/doas.d/kernarium.conf
-for group in video input audio render; do
+printf '%s\n' '%wheel ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/wheel
+chmod 0440 /etc/sudoers.d/wheel
+for group in wheel video input audio render; do
 	if getent group "$group" >/dev/null; then
 		addgroup uml "$group"
 	fi
@@ -54,6 +58,41 @@ printf '%s\n' '[Seat:*]' 'autologin-user=uml' 'autologin-session=xfce' \
 	echo "alpine-xfce setup: the image has no XFCE session" >&2
 	exit 1
 }
+
+# fastfetch names the Apple device as the host, and the display after the
+# renderer; the rest is fastfetch's default module list.
+install -m 0755 /tmp/kellylinux-host /usr/libexec/kellylinux-host
+install -d -m 0755 /etc/xdg/fastfetch
+cat > /etc/xdg/fastfetch/config.jsonc <<'CONFIG'
+{
+  "modules": [
+    "title", "separator", "os",
+    { "type": "command", "key": "Host", "text": "/usr/libexec/kellylinux-host" },
+    "kernel", "uptime", "packages", "shell",
+    { "type": "display", "key": "Display (KellyRender)" },
+    "de", "wm", "wmtheme", "theme", "icons", "font", "cursor", "terminal",
+    "terminalfont", "cpu", "gpu", "memory", "swap", "disk", "localip",
+    "battery", "poweradapter", "locale", "break", "colors"
+  ]
+}
+CONFIG
+
+# A wallpaper the build supplies replaces xfdesktop's compiled-in default
+# backdrop, so every monitor and workspace shows it without per-output keys.
+if [ -f /tmp/wallpaper.png ]; then
+	install -D -m 0644 /tmp/wallpaper.png /usr/share/backgrounds/kellylinux.png
+	defaults=$(grep -rahoE '/usr/share/backgrounds/xfce/[A-Za-z0-9._-]+' \
+		/usr/bin/xfdesktop* /usr/lib/libxfce4* /usr/lib/xfce4 2>/dev/null |
+		sort -u)
+	[ -n "$defaults" ] || {
+		echo "alpine-xfce setup: cannot find xfdesktop's default backdrop" >&2
+		exit 1
+	}
+	for default in $defaults; do
+		install -d -m 0755 "${default%/*}"
+		ln -sf /usr/share/backgrounds/kellylinux.png "$default"
+	done
+fi
 
 # Kernarium mounts the image read-only beneath a fresh overlay from its own
 # /init, so the image mounts no root of its own.
