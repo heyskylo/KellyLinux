@@ -28,6 +28,7 @@ DEBIAN_IMAGES = {
     "debian-13-minimal-armhf": "debian-13-minimal-armhf.img",
     "debian-13-xfce": "debian-13-xfce.erofs",
     "debian-13-phosh": "debian-13-phosh.erofs",
+    "debian-13-plasma-mobile": "debian-13-plasma-mobile.erofs",
 }
 PRODUCTS = ("boot-base-aarch64", "boot-base-x86_64", "alpine",
             *DEBIAN_IMAGES)

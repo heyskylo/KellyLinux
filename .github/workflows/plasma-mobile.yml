@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Build the Debian 13 Plasma Mobile image and attach it to its own release.
+name: Build Plasma Mobile image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  image:
+    uses: ./.github/workflows/boot-base.yml
+    with:
+      products: debian-13-plasma-mobile
+      release: debian-plasma-mobile

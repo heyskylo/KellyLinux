@@ -1,6 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Desktop policy of the Debian XFCE and Phosh images; the argument names the
+# Desktop policy of the Debian XFCE, Phosh and Plasma Mobile images; the
+# argument names the
 # session. build-all.sh runs it once as root in the image root after the
 # desktop packages are installed. README.md beside this script owns the
 # contract.
@@ -12,7 +13,7 @@ fail()
 	echo "debian-$session setup: $*" >&2
 	exit 1
 }
-case "$session" in xfce|phosh) ;; *) fail "unknown session" ;; esac
+case "$session" in xfce|phosh|plasma-mobile) ;; *) fail "unknown session" ;; esac
 
 install -d -m 0755 /etc/udev/rules.d
 cat > /etc/udev/rules.d/59-kernarium-input.rules <<'RULES'
@@ -76,6 +77,18 @@ idle-delay=uint32 0
 OVERRIDE
 	display_manager=greetd
 	;;
+plasma-mobile)
+	[ -f /usr/share/wayland-sessions/plasma-mobile.desktop ] ||
+		fail "the image has no Plasma Mobile session"
+	install -d -m 0755 /etc/sddm.conf.d
+	printf '%s\n' '[Autologin]' 'User=uml' 'Session=plasma-mobile' \
+		'Relogin=true' > /etc/sddm.conf.d/50-kernarium.conf
+	# uml has no password, so a lock screen could never be unlocked.
+	install -d -m 0755 /etc/xdg
+	printf '%s\n' '[Daemon]' 'Autolock=false' 'LockOnResume=false' \
+		> /etc/xdg/kscreenlockerrc
+	display_manager=sddm
+	;;
 esac
 systemctl enable "$display_manager.service" ssh.service
 ln -sfn "/usr/lib/systemd/system/$display_manager.service" \
@@ -126,7 +139,8 @@ CONFIG
 
 # A wallpaper the build supplies becomes the session's default backdrop. XFCE
 # gets it in place of xfdesktop's compiled-in default, so every monitor and
-# workspace shows it without per-output keys; Phosh reads GNOME's setting.
+# workspace shows it without per-output keys; Phosh reads GNOME's setting,
+# and Plasma's default wallpaper package takes it as its only image.
 if [ -f /tmp/wallpaper.png ]; then
 	wallpaper=/usr/share/backgrounds/kellylinux.png
 	install -D -m 0644 /tmp/wallpaper.png "$wallpaper"
@@ -148,6 +162,15 @@ picture-uri='file://$wallpaper'
 picture-uri-dark='file://$wallpaper'
 picture-options='zoom'
 OVERRIDE
+		;;
+	plasma-mobile)
+		images=/usr/share/wallpapers/Next/contents/images
+		[ -d "$images" ] || fail "Plasma has no default wallpaper package"
+		for directory in "$images" "${images}_dark"; do
+			[ -d "$directory" ] || continue
+			find "$directory" -mindepth 1 -delete
+			ln -s "$wallpaper" "$directory/1179x2556.png"
+		done
 		;;
 	esac
 fi

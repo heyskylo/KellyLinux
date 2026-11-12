@@ -17,6 +17,15 @@ on:
         description: Release tag the images are attached to
         default: ci-inputs
         required: true
+  # Image workflows call this one with their product and release.
+  workflow_call:
+    inputs:
+      products:
+        type: string
+        required: true
+      release:
+        type: string
+        required: true
 
 permissions:
   contents: write

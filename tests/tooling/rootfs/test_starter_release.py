@@ -92,16 +92,19 @@ class ManifestTests(unittest.TestCase):
                          ["path", "sha256", "size"])
 
     def test_the_desktop_images_are_bare_erofs_with_inventories(self) -> None:
-        for session in ("xfce", "phosh"):
+        for session in ("xfce", "phosh", "plasma-mobile"):
             name = f"debian-13-{session}.erofs"
             (self.output / name).write_bytes(b"erofs")
             (self.output / f"{name}.packages.tsv").write_text("pkg\t1\n")
         self.manifest("--product", "debian-13-xfce",
                       "--product", "debian-13-phosh",
+                      "--product", "debian-13-plasma-mobile",
                       "--debian-suite", "trixie", "--debian-version", "13.2")
         manifest = self.load_manifest()
         self.assertEqual(sorted(manifest["artifacts"]),
-                         ["debian-13-phosh.erofs", "debian-13-xfce.erofs"])
+                         ["debian-13-phosh.erofs",
+                          "debian-13-plasma-mobile.erofs",
+                          "debian-13-xfce.erofs"])
         self.assertEqual(sorted(manifest["sources"]), ["debian"])
         entry = manifest["artifacts"]["debian-13-xfce.erofs"]
         self.assertNotIn("disk", entry)

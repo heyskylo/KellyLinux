@@ -23,7 +23,7 @@ DEBIAN_MIRROR=http://deb.debian.org/debian
 # provides. --exclude cannot drop it, because the dependency pulls it back.
 ARMHF_INCLUDE=systemd-sysv,systemd-resolved,udev,kmod,dbus,ca-certificates,libbpf1
 DEFAULT_PRODUCTS="boot-base-aarch64 boot-base-x86_64 alpine debian-13-minimal debian-13-plasma-wayland"
-KNOWN_PRODUCTS="$DEFAULT_PRODUCTS debian-13-minimal-armhf debian-13-xfce debian-13-phosh"
+KNOWN_PRODUCTS="$DEFAULT_PRODUCTS debian-13-minimal-armhf debian-13-xfce debian-13-phosh debian-13-plasma-mobile"
 
 fail()
 {
@@ -42,13 +42,13 @@ must be absolute and distinct outside the source tree. The output path must
 not exist; the completed release directory is published atomically.
 
 --product builds only the named products, each at most once; by default the
-release holds every product but the armhf, XFCE and Phosh ones:
+release holds every product but the armhf and desktop EROFS ones:
   boot-base-aarch64 boot-base-x86_64 alpine debian-13-minimal
   debian-13-plasma-wayland debian-13-minimal-armhf debian-13-xfce
-  debian-13-phosh
+  debian-13-phosh debian-13-plasma-mobile
 
-debian-13-xfce and debian-13-phosh are bare EROFS images for Kernarium; they
-need mkfs.erofs.
+debian-13-xfce, debian-13-phosh and debian-13-plasma-mobile are bare EROFS
+images for Kernarium; they need mkfs.erofs.
 
 debian-13-minimal-armhf runs ARM programs under qemu-arm (Debian's qemu-user)
 in private namespaces.
@@ -121,7 +121,8 @@ producer_require_host aarch64 chroot cpio curl debootstrap e2fsck gzip make \
 if wants debian-13-minimal-armhf; then
 	sudo -n -- sh "$SCRIPT_DIR/armhf-run.sh" --check
 fi
-if wants debian-13-xfce || wants debian-13-phosh; then
+if wants debian-13-xfce || wants debian-13-phosh || \
+	wants debian-13-plasma-mobile; then
 	producer_require_host aarch64 mkfs.erofs
 fi
 
@@ -711,13 +712,21 @@ build_debian_plasma()
 build_debian_desktop()
 {
 	session=$1
+	# A mobile shell takes its recommends: its session starts helpers, such
+	# as gnome-session for Phosh, that its packages only recommend.
+	recommends=--no-install-recommends
 	case "$session" in
 	xfce)
 		packages="xserver-xorg-core xserver-xorg-input-libinput lightdm
 			lightdm-gtk-greeter xfce4 xfce4-terminal"
 		;;
 	phosh)
-		packages="phosh phoc squeekboard gnome-console greetd xwayland"
+		packages="phosh-core gnome-console greetd xwayland"
+		recommends=
+		;;
+	plasma-mobile)
+		packages="plasma-mobile sddm maliit-keyboard konsole xwayland"
+		recommends=
 		;;
 	esac
 	printf '%s\n' "==> Building Debian 13 $session EROFS image"
@@ -728,9 +737,13 @@ build_debian_desktop()
 	install_debian_base "$root"
 	configure_debian_base "$root" "debian-$session" root
 	as_root chroot "$root" /usr/bin/env DEBIAN_FRONTEND=noninteractive \
-		apt-get install -y --no-install-recommends $packages \
+		apt-get install -y $recommends $packages
+	# libpam-systemd registers each login with logind, which gives a
+	# compositor its seat.
+	as_root chroot "$root" /usr/bin/env DEBIAN_FRONTEND=noninteractive \
+		apt-get install -y --no-install-recommends \
 		libgl1-mesa-dri libegl1 mesa-vulkan-drivers mesa-utils \
-		libglib2.0-bin dbus-user-session fonts-dejavu-core \
+		libpam-systemd libglib2.0-bin dbus-user-session fonts-dejavu-core \
 		adwaita-icon-theme sudo openssh-server iputils-ping netsurf-gtk \
 		fastfetch nano htop curl wget zsh
 	as_root install -m 0755 "$SCRIPT_DIR/debian-desktop-setup" "$root/tmp/debian-desktop-setup"
@@ -826,6 +839,9 @@ fi
 if wants debian-13-phosh; then
 	build_debian_desktop phosh
 fi
+if wants debian-13-plasma-mobile; then
+	build_debian_desktop plasma-mobile
+fi
 if wants debian-13-minimal; then
 	build_debian_minimal
 fi
@@ -860,7 +876,7 @@ if wants alpine; then
 fi
 if wants debian-13-minimal || wants debian-13-plasma-wayland || \
 	wants debian-13-minimal-armhf || wants debian-13-xfce || \
-	wants debian-13-phosh; then
+	wants debian-13-phosh || wants debian-13-plasma-mobile; then
 	set -- "$@" --debian-suite "$DEBIAN_SUITE" \
 		--debian-version "$(cat "$work_dir/debian.version")"
 fi

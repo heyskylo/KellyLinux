@@ -16,11 +16,11 @@ archives and three raw GPT disks:
   the [Virtio video VA-API driver](../../video/va-v4l2/README.md) with the
   `/etc/chromium.d` file that makes Chromium use it.
 
-The opt-in `debian-13-xfce` and `debian-13-phosh` products,
-`debian-13-<session>.erofs`, are not disks: each is a bare LZMA EROFS image
+The opt-in `debian-13-xfce`, `debian-13-phosh` and `debian-13-plasma-mobile`
+products, `debian-13-<session>.erofs`, are not disks: each is a bare LZMA EROFS image
 that Kernarium boots like the KDE image, on Debian's Mesa so that the session
 renders through Virgl on the host GPU. Each has `uml` logged in automatically
-(by LightDM into XFCE, or by greetd into Phosh), a root without a password and
+(by LightDM into XFCE, greetd into Phosh, or SDDM into Plasma Mobile), a root without a password and
 passwordless `sudo` for `uml`, sshd for the app's loopback port 2222, the
 NetSurf browser, `gpucheck`, a fastfetch that names the host Apple device
 ([`kellylinux-host`](kellylinux-host)), a root shell on the `ttyS0` console,
