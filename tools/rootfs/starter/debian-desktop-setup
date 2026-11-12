@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Desktop policy of the Alpine XFCE and Phosh images; the argument names the
+# Desktop policy of the Debian XFCE and Phosh images; the argument names the
 # session. build-all.sh runs it once as root in the image root after the
 # desktop packages are installed. README.md beside this script owns the
 # contract.
@@ -9,38 +9,10 @@ set -eu
 session=$1
 fail()
 {
-	echo "alpine-$session setup: $*" >&2
+	echo "debian-$session setup: $*" >&2
 	exit 1
 }
 case "$session" in xfce|phosh) ;; *) fail "unknown session" ;; esac
-
-# Xorg finds and classifies input devices through udev, so eudev replaces the
-# minimal image's mdevd. OpenRC counts UML among containers and would skip
-# udev's coldplug there; this UML owns its devtmpfs and virtual hardware.
-rc-update del mdevd-init sysinit
-rc-update del mdevd sysinit
-for service in udev udev-trigger udev-settle; do
-	sed -i '/^[[:space:]]*keyword -containers[[:space:]]*$/d' \
-		"/etc/init.d/$service"
-	rc-update add "$service" sysinit
-done
-rc-update add udev-postmount default
-case "$session" in
-xfce) display_manager=lightdm ;;
-phosh) display_manager=greetd ;;
-esac
-# sshd keeps its defaults, no root password login and no empty passwords, so
-# the shell the app forwards on loopback port 2222 opens once uml has one.
-for service in dbus elogind sshd "$display_manager"; do
-	rc-update add "$service" default
-done
-
-# Busybox ping opens an unprivileged ICMP socket, which the kernel allows only
-# to the groups this range names.
-install -d -m 0755 /etc/sysctl.d
-printf '%s\n' 'net.ipv4.ping_group_range = 0 2147483647' \
-	> /etc/sysctl.d/50-kernarium-ping.conf
-[ -e /etc/runlevels/boot/sysctl ] || rc-update add sysctl boot
 
 install -d -m 0755 /etc/udev/rules.d
 cat > /etc/udev/rules.d/59-kernarium-input.rules <<'RULES'
@@ -51,18 +23,18 @@ ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Darwin
 RULES
 chmod 0644 /etc/udev/rules.d/59-kernarium-input.rules
 
-adduser -D -s /bin/sh uml
+useradd -m -s /bin/bash uml
 passwd -d uml
 # The guest is a single-owner sandbox inside the app, so root takes no
-# password: su, sudo and doas all reach it from uml.
+# password: su and sudo reach it from uml. sshd keeps its defaults, no root
+# password login and no empty passwords, so the shell the app forwards on
+# loopback port 2222 opens once uml has a password.
 passwd -d root
-printf '%s\n' 'permit nopass uml' > /etc/doas.d/kernarium.conf
-chmod 0600 /etc/doas.d/kernarium.conf
-printf '%s\n' '%wheel ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/wheel
-chmod 0440 /etc/sudoers.d/wheel
-for group in wheel video input audio render; do
+printf '%s\n' 'uml ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/uml
+chmod 0440 /etc/sudoers.d/uml
+for group in sudo video input audio render; do
 	if getent group "$group" >/dev/null; then
-		addgroup uml "$group"
+		usermod -a -G "$group" uml
 	fi
 done
 
@@ -73,20 +45,14 @@ xfce)
 		'user-session=xfce' > /etc/lightdm/lightdm.conf.d/50-kernarium.conf
 	[ -f /usr/share/xsessions/xfce.desktop ] ||
 		fail "the image has no XFCE session"
+	display_manager=lightdm
 	;;
 phosh)
 	# greetd starts Phosh as uml at boot and again after a logout, so the
-	# image needs no greeter.
+	# image needs no greeter. Phosh's own development unit would race it.
 	[ -x /usr/bin/phosh-session ] || fail "the image has no Phosh session"
-	# uml has no password, so a lock screen could never be unlocked.
-	cat > /usr/share/glib-2.0/schemas/80-kellylinux-lock.gschema.override <<'OVERRIDE'
-[org.gnome.desktop.screensaver]
-lock-enabled=false
-
-[org.gnome.desktop.session]
-idle-delay=uint32 0
-OVERRIDE
-	glib-compile-schemas /usr/share/glib-2.0/schemas
+	systemctl disable phosh.service 2>/dev/null || true
+	rm -f /etc/systemd/system/graphical.target.wants/phosh.service
 	install -d -m 0755 /etc/greetd
 	cat > /etc/greetd/config.toml <<'CONFIG'
 [terminal]
@@ -100,15 +66,31 @@ user = "uml"
 command = "phosh-session"
 user = "uml"
 CONFIG
+	# uml has no password, so a lock screen could never be unlocked.
+	cat > /usr/share/glib-2.0/schemas/80-kellylinux-lock.gschema.override <<'OVERRIDE'
+[org.gnome.desktop.screensaver]
+lock-enabled=false
+
+[org.gnome.desktop.session]
+idle-delay=uint32 0
+OVERRIDE
+	display_manager=greetd
 	;;
 esac
+systemctl enable "$display_manager.service" ssh.service
+ln -sfn "/usr/lib/systemd/system/$display_manager.service" \
+	/etc/systemd/system/display-manager.service
+systemctl set-default graphical.target
 
-# Kernarium's console is ttyS0, not the hvc0 of the shared Alpine setup;
-# init respawning a getty on a missing hvc0 floods that console.
-sed -i 's/^hvc0::respawn:.* hvc0 vt100$/ttyS0::respawn:\/sbin\/getty -n -l \/sbin\/autologin-root 115200 ttyS0 vt100/' /etc/inittab
-grep -q '^ttyS0::respawn:' /etc/inittab ||
-	fail "cannot move the console getty to ttyS0"
-grep -qx ttyS0 /etc/securetty || printf '%s\n' ttyS0 >> /etc/securetty
+# Kernarium's console is ttyS0; its getty logs root in, while the shared
+# Debian base's hvc0 getty waits on a device Kernarium lacks.
+systemctl disable serial-getty@hvc0.service
+install -d -m 0755 /etc/systemd/system/serial-getty@ttyS0.service.d
+cat > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf <<'UNIT'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --noclear - $TERM
+UNIT
 
 # gpucheck reports in one line whether Mesa reaches the GPU or draws in
 # software, the way the session's compositor opens it.
@@ -150,9 +132,9 @@ if [ -f /tmp/wallpaper.png ]; then
 	install -D -m 0644 /tmp/wallpaper.png "$wallpaper"
 	case "$session" in
 	xfce)
-		defaults=$(grep -rahoE '/usr/share/backgrounds/xfce/[A-Za-z0-9._-]+' \
-			/usr/bin/xfdesktop* /usr/lib/libxfce4* /usr/lib/xfce4 2>/dev/null |
-			sort -u)
+		defaults=$(grep -rahoE '/usr/share/(backgrounds|images/desktop-base)/[A-Za-z0-9._/-]+\.(png|jpg|svg)' \
+			/usr/bin/xfdesktop* /usr/lib/*/libxfce4* /usr/lib/*/xfce4 \
+			2>/dev/null | sort -u)
 		[ -n "$defaults" ] || fail "cannot find xfdesktop's default backdrop"
 		for default in $defaults; do
 			install -d -m 0755 "${default%/*}"
@@ -166,12 +148,11 @@ picture-uri='file://$wallpaper'
 picture-uri-dark='file://$wallpaper'
 picture-options='zoom'
 OVERRIDE
-		glib-compile-schemas /usr/share/glib-2.0/schemas
 		;;
 	esac
 fi
+glib-compile-schemas /usr/share/glib-2.0/schemas
 
-# Kernarium mounts the image read-only beneath a fresh overlay from its own
-# /init, so the image mounts no root of its own.
+# Kernarium mounts the image read-only beneath an overlay from its own /init,
+# so the image mounts no root of its own.
 printf '%s\n' '# The root is the overlay the per-run /init mounts.' > /etc/fstab
-printf '%s\n' "alpine-$session" > /etc/hostname

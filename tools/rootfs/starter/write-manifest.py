@@ -26,9 +26,11 @@ DEBIAN_IMAGES = {
     "debian-13-minimal": "debian-13-minimal.img",
     "debian-13-plasma-wayland": "debian-13-plasma-wayland.img",
     "debian-13-minimal-armhf": "debian-13-minimal-armhf.img",
+    "debian-13-xfce": "debian-13-xfce.erofs",
+    "debian-13-phosh": "debian-13-phosh.erofs",
 }
 PRODUCTS = ("boot-base-aarch64", "boot-base-x86_64", "alpine",
-            "alpine-xfce", "alpine-phosh", *DEBIAN_IMAGES)
+            *DEBIAN_IMAGES)
 # What each row of the armhf image's package inventory records.
 ARMHF_INVENTORY_COLUMNS = ["package", "version", "architecture", "size",
                            "sha256"]
@@ -100,16 +102,12 @@ def main() -> int:
                                 "sha256": arguments.buildroot_sha256}
         sources["busybox"] = {"version": arguments.busybox_version,
                               "sha256": arguments.busybox_sha256}
-    if {"alpine", "alpine-xfce", "alpine-phosh"} & set(products):
+    if "alpine" in products:
         require("alpine_version", "alpine_sha256")
         sources["alpine"] = {"version": arguments.alpine_version,
                              "sha256": arguments.alpine_sha256}
     if "alpine" in products:
         artifacts.append(f"alpine-{arguments.alpine_version}-minimal.img")
-    for session in ("xfce", "phosh"):
-        if f"alpine-{session}" in products:
-            artifacts.append(
-                f"alpine-{arguments.alpine_version}-{session}.erofs")
     debian = [DEBIAN_IMAGES[p] for p in products if p in DEBIAN_IMAGES]
     artifacts += debian
     if debian:

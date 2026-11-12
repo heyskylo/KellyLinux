@@ -91,30 +91,21 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(sorted(entry["package_inventory"]),
                          ["path", "sha256", "size"])
 
-    def test_the_xfce_image_is_a_bare_erofs_with_its_inventory(self) -> None:
-        (self.output / "alpine-3.24.2-xfce.erofs").write_bytes(b"erofs")
-        (self.output / "alpine-3.24.2-xfce.erofs.packages.tsv").write_text(
-            "pkg\t1\n")
-        self.manifest("--product", "alpine-xfce",
-                      "--alpine-version", "3.24.2", "--alpine-sha256", "c")
+    def test_the_desktop_images_are_bare_erofs_with_inventories(self) -> None:
+        for session in ("xfce", "phosh"):
+            name = f"debian-13-{session}.erofs"
+            (self.output / name).write_bytes(b"erofs")
+            (self.output / f"{name}.packages.tsv").write_text("pkg\t1\n")
+        self.manifest("--product", "debian-13-xfce",
+                      "--product", "debian-13-phosh",
+                      "--debian-suite", "trixie", "--debian-version", "13.2")
         manifest = self.load_manifest()
         self.assertEqual(sorted(manifest["artifacts"]),
-                         ["alpine-3.24.2-xfce.erofs"])
-        self.assertEqual(sorted(manifest["sources"]), ["alpine"])
-        entry = manifest["artifacts"]["alpine-3.24.2-xfce.erofs"]
+                         ["debian-13-phosh.erofs", "debian-13-xfce.erofs"])
+        self.assertEqual(sorted(manifest["sources"]), ["debian"])
+        entry = manifest["artifacts"]["debian-13-xfce.erofs"]
         self.assertNotIn("disk", entry)
         self.assertIn("package_inventory", entry)
-
-    def test_the_phosh_image_is_a_bare_erofs_with_its_inventory(self) -> None:
-        (self.output / "alpine-3.24.2-phosh.erofs").write_bytes(b"erofs")
-        (self.output / "alpine-3.24.2-phosh.erofs.packages.tsv").write_text(
-            "pkg\t1\n")
-        self.manifest("--product", "alpine-phosh",
-                      "--alpine-version", "3.24.2", "--alpine-sha256", "c")
-        manifest = self.load_manifest()
-        self.assertEqual(sorted(manifest["artifacts"]),
-                         ["alpine-3.24.2-phosh.erofs"])
-        self.assertEqual(sorted(manifest["sources"]), ["alpine"])
 
     def armhf_release(self, audit: list[str]) -> list[str]:
         self.image("debian-13-minimal-armhf.img")

@@ -16,14 +16,15 @@ archives and three raw GPT disks:
   the [Virtio video VA-API driver](../../video/va-v4l2/README.md) with the
   `/etc/chromium.d` file that makes Chromium use it.
 
-The opt-in `alpine-xfce` and `alpine-phosh` products,
-`alpine-<version>-<session>.erofs`, are not disks: each is a bare LZMA EROFS
-image that Kernarium boots like the KDE image, with eudev, `uml` logged in
-automatically (by LightDM into XFCE, or by greetd into Phosh), a root without
-a password and passwordless `doas` and `sudo` for `uml`, the NetSurf browser,
-a fastfetch that names the host Apple device
-([`kellylinux-host`](kellylinux-host)), a login shell on the `ttyS0` console,
-and the Kernarium input rules ([`alpine-desktop-setup`](alpine-desktop-setup)).
+The opt-in `debian-13-xfce` and `debian-13-phosh` products,
+`debian-13-<session>.erofs`, are not disks: each is a bare LZMA EROFS image
+that Kernarium boots like the KDE image, on Debian's Mesa so that the session
+renders through Virgl on the host GPU. Each has `uml` logged in automatically
+(by LightDM into XFCE, or by greetd into Phosh), a root without a password and
+passwordless `sudo` for `uml`, sshd for the app's loopback port 2222, the
+NetSurf browser, `gpucheck`, a fastfetch that names the host Apple device
+([`kellylinux-host`](kellylinux-host)), a root shell on the `ttyS0` console,
+and the Kernarium input rules ([`debian-desktop-setup`](debian-desktop-setup)).
 A `wallpaper.png` beside the setup script, when present, becomes the
 session's default backdrop.
 
