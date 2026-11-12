@@ -127,17 +127,26 @@ jobs:
       - uses: actions/checkout@v4
 
       # shortcut: hosted images carry no Xcode 27 yet; drop these steps once one does.
-      # Only the download needs the Apple ID, so its .xip is cached and later
-      # runs install it without asking for a code.
+      # Unpacking the .xip takes most of the install, so the unpacked Xcode is
+      # cached as a zstd archive. The .xip stays cached beneath it so a lost
+      # archive is rebuilt without asking the Apple ID for a code.
+      - name: Restore installed Xcode
+        id: xcodeapp
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/xcode-app
+          key: xcode-app-${{ env.XCODE_VERSION }}
+
       - name: Restore Xcode download
         id: xcode
+        if: steps.xcodeapp.outputs.cache-hit != 'true'
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/xcode-xip
           key: xcode-xip-${{ env.XCODE_VERSION }}
 
       - name: Download Xcode ${{ env.XCODE_VERSION }}
-        if: steps.xcode.outputs.cache-hit != 'true'
+        if: steps.xcodeapp.outputs.cache-hit != 'true' && steps.xcode.outputs.cache-hit != 'true'
         env:
           XCODES_USERNAME: ${{ secrets.XCODES_USERNAME }}
           XCODES_PASSWORD: ${{ secrets.XCODES_PASSWORD }}
@@ -178,7 +187,7 @@ jobs:
           ls -l "$RUNNER_TEMP/xcode-xip"
 
       - name: Save Xcode download
-        if: steps.xcode.outputs.cache-hit != 'true'
+        if: steps.xcodeapp.outputs.cache-hit != 'true' && steps.xcode.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/xcode-xip
@@ -187,13 +196,33 @@ jobs:
       - name: Install Xcode ${{ env.XCODE_VERSION }}
         run: |
           sudo rm -rf /Applications/Xcode_26.[0-5]*.app
-          brew install xcodes
-          xip=$(ls "$RUNNER_TEMP"/xcode-xip/*.xip)
-          xcodes install "$XCODE_VERSION" --path "$xip" --experimental-unxip --select
-          rm -f "$xip"
+          archive=$RUNNER_TEMP/xcode-app/Xcode.tar.zst
+          if [ -f "$archive" ]; then
+            zstd -dc "$archive" | sudo tar -xpf - -C /Applications
+            rm -f "$archive"
+            sudo xcode-select -s /Applications/Xcode-"$XCODE_VERSION"*.app
+            sudo xcodebuild -license accept
+            sudo xcodebuild -runFirstLaunch
+          else
+            brew install xcodes
+            xip=$(ls "$RUNNER_TEMP"/xcode-xip/*.xip)
+            xcodes install "$XCODE_VERSION" --path "$xip" --experimental-unxip --select
+            rm -f "$xip"
+            mkdir -p "$RUNNER_TEMP/xcode-app"
+            app=$(basename /Applications/Xcode-"$XCODE_VERSION"*.app)
+            tar -cf - -C /Applications "$app" | zstd -T0 -3 -q -o "$archive"
+            ls -l "$archive"
+          fi
           xcodebuild -version | grep -q '^Xcode 27' || { xcodebuild -version; exit 1; }
           xcodebuild -downloadPlatform iOS
           xcodebuild -downloadComponent MetalToolchain
+
+      - name: Save installed Xcode
+        if: steps.xcodeapp.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/xcode-app
+          key: xcode-app-${{ env.XCODE_VERSION }}
 
       - uses: actions/setup-python@v5
         with:
@@ -241,12 +270,17 @@ jobs:
           path: .build/dependencies
           key: ios-deps-${{ hashFiles('dependencies/**') }}-xcode27
 
-      - name: Build dependency prefixes
-        if: steps.deps.outputs.cache-hit != 'true'
+      # Packaging re-verifies the sources, so they are fetched even when the
+      # built prefixes come from the cache.
+      - name: Fetch dependency sources
         run: |
           for product in apple-gpu-vulkan-experiment ios-network ios-storage ios-compression; do
             dependencies/prepare.sh --product "$product"
           done
+
+      - name: Build dependency prefixes
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: |
           jobs=$(sysctl -n hw.logicalcpu)
           dependencies/build-apple-gpu.sh --platform ios --jobs "$jobs" \
             --prefix .build/dependencies/apple-gpu-vulkan-experiment/ios-device-arm64
