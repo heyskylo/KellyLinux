@@ -337,7 +337,7 @@ private struct Executor {
     }
 
     private mutating func application(_ command: [String: Any]) -> XCUIApplication {
-        let bundle = command["bundle"] as? String ?? "com.imxieyi.Kernarium"
+        let bundle = command["bundle"] as? String ?? "lol.respring.kellylinux"
         if let app = applications[bundle] {
             return app
         }

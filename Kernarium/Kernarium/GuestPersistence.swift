@@ -22,7 +22,7 @@ final class GuestPersistence {
     private static let terminationBudget = DispatchTimeInterval.seconds(4)
 
     private let queue = DispatchQueue(
-        label: "com.imxieyi.Kernarium.guest-sync",
+        label: "lol.respring.kellylinux.guest-sync",
         qos: .userInitiated
     )
     private var observers: [NSObjectProtocol] = []
@@ -267,7 +267,7 @@ final class SystemSpacePauseEffects: SpacePauseEffects {
     private let persistence: GuestPersistence
     /// Statistics requests wait for the guest and never overlap.
     private let statisticsQueue = DispatchQueue(
-        label: "com.imxieyi.Kernarium.space-statistics",
+        label: "lol.respring.kellylinux.space-statistics",
         qos: .utility
     )
 

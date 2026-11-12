@@ -118,7 +118,7 @@ nonisolated final class GuestGPUHold: @unchecked Sendable {
     static let dispatchTimer: GuestGPUHoldTimer = { seconds, action in
         let source = DispatchSource.makeTimerSource(
             queue: DispatchQueue(
-                label: "com.imxieyi.Kernarium.gpu-hold",
+                label: "lol.respring.kellylinux.gpu-hold",
                 qos: .userInteractive
             )
         )

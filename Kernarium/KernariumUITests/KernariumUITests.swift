@@ -139,7 +139,7 @@ final class KernariumUITests: XCTestCase {
             bundleIdentifier: "com.apple.springboard"
         )
         let controls = springboard.descendants(matching: .any)[
-            "window-controls:com.imxieyi.Kernarium"
+            "window-controls:lol.respring.kellylinux"
         ]
         guard controls.waitForExistence(timeout: 5) else {
             throw XCTSkip("the window has no windowing controls to clear")
@@ -171,7 +171,7 @@ final class KernariumUITests: XCTestCase {
             bundleIdentifier: "com.apple.springboard"
         )
         let controls = springboard.descendants(matching: .any)[
-            "window-controls:com.imxieyi.Kernarium"
+            "window-controls:lol.respring.kellylinux"
         ]
         if controls.waitForExistence(timeout: 5) {
             throw XCTSkip(

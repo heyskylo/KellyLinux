@@ -170,8 +170,8 @@ mount_direct_root()
 # The image read-only beneath a writable layer that ends with the run. Both
 # layers stay visible in the new root, at /.uml-lower and /.uml-state, so a
 # guest can check what it runs on and keep bulky state beside the overlay.
-# The layer is a tmpfs, or an ext4 filesystem formatted afresh on a block
-# device. Docker's overlay2 and containerd's overlay snapshotter refuse an
+# The layer is a tmpfs, or an ext4 filesystem on a block device, formatted
+# only while it holds none so a kept disk carries the guest's changes forward. Docker's overlay2 and containerd's overlay snapshotter refuse an
 # overlayfs backing, so on ext4 their state directories are bound from the
 # same filesystem beside the overlay rather than kept in its upper layer.
 mount_overlay_root()
@@ -185,9 +185,12 @@ mount_overlay_root()
 		;;
 	ext4)
 		wait_for_device "$upper_device"
-		mkfs.ext4 -F -q -m 0 \
+		case "$(blkid "$upper_device" 2>/dev/null)" in
+		*TYPE=\"ext4\"*) ;;
+		*) mkfs.ext4 -F -q -m 0 \
 			-E nodiscard,lazy_itable_init=1,lazy_journal_init=1 \
-			"$upper_device" || fail "cannot format $upper_device"
+			"$upper_device" || fail "cannot format $upper_device" ;;
+		esac
 		mount -t ext4 -o noatime,nosuid,nodev "$upper_device" /state || \
 			fail "cannot mount $upper_device"
 		;;

@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Build an unsigned Kernarium .ipa for the iOS device. The kernel job builds
+# Build an unsigned Kelly Linux .ipa for the iOS device. The kernel job builds
 # the Linux and Android kernel bundles only when a kernel input changes, and
 # the cached bundles serve every other run. The accepted boot base archive is
 # not rebuildable byte-for-byte, so it comes from the `ci-inputs` release.
 # Configure and packaging verify every input against the tracked descriptors.
-name: Kernarium IPA
+name: Build Kelly Linux IPA
 
 on:
   push:
@@ -278,7 +278,7 @@ jobs:
       - name: Package frameworks
         run: Kernarium/scripts/package-ios-frameworks.sh --sdk device
 
-      - name: Build unsigned app
+      - name: Build unsigned Kelly Linux app
         run: |
           xcodebuild -project Kernarium/Kernarium.xcodeproj -scheme Kernarium \
             -configuration Release -destination generic/platform=iOS \
@@ -286,10 +286,10 @@ jobs:
             CODE_SIGNING_ALLOWED=NO build
           mkdir -p .build/ipa/Payload
           cp -R .build/ci-derived-data/Build/Products/Release-iphoneos/Kernarium.app .build/ipa/Payload/
-          (cd .build/ipa && zip -qry Kernarium-unsigned.ipa Payload)
+          (cd .build/ipa && zip -qry KellyLinux-unsigned.ipa Payload)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Kernarium-unsigned-ipa
-          path: .build/ipa/Kernarium-unsigned.ipa
+          name: KellyLinux-unsigned-ipa
+          path: .build/ipa/KellyLinux-unsigned.ipa
           if-no-files-found: error

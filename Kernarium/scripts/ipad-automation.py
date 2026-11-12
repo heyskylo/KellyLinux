@@ -24,7 +24,7 @@ session keeps it on, so a new host normally needs a new approval at the
 device: never stop a working host without someone to approve its successor.
 Run `start` only while someone can approve, because XCTest gives up 60 s after
 the runner starts and leaves the prompt on screen. The host targets
-com.imxieyi.Kernarium unless --bundle names another application, such as
+lol.respring.kellylinux unless --bundle names another application, such as
 com.apple.springboard.
 
 A coordinate tap or drag names points as offsets from the origin of that
@@ -52,8 +52,8 @@ import tempfile
 import time
 import uuid
 
-RUNNER = "com.imxieyi.KernariumAutomation.xctrunner"
-KERNARIUM = "com.imxieyi.Kernarium"
+RUNNER = "lol.respring.kellylinuxAutomation.xctrunner"
+KERNARIUM = "lol.respring.kellylinux"
 CHANNEL = "Documents/automation"
 TEST = "KernariumAutomation/AutomationHost/testServe"
 HEARTBEAT_STALE = 20

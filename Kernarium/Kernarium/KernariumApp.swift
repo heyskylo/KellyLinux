@@ -32,6 +32,8 @@ struct KernariumApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .statusBarHidden()
+                .persistentSystemOverlays(.hidden)
         }
     }
 }

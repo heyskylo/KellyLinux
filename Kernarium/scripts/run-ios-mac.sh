@@ -22,7 +22,7 @@ ROOTFS=
 # shellcheck disable=SC1091
 . "$ROOT_DIR/kernel/mainline-6.18/artifacts/accepted-4k.env"
 ARTIFACT=${UML_MAINLINE_618_KERNEL_ARTIFACT_DIR:-"$ROOT_DIR/.build/kernel/artifacts/$UML_KERNEL_ARTIFACT_DIRECTORY_NAME"}
-BUNDLE_ID=com.imxieyi.Kernarium
+BUNDLE_ID=lol.respring.kellylinux
 DERIVED_DATA="$ROOT_DIR/.build/kernarium-xcode-derived"
 INITRAMFS_TOOL="$ROOT_DIR/.build/presets/macos-integration/bin/uml-initramfs"
 DESTINATION='platform=macOS,variant=Designed for iPad'

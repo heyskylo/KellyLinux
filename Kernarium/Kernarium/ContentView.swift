@@ -43,6 +43,7 @@ struct ContentView: View {
                 .allowsHitTesting(guestViewMode == .framebuffer)
                 .accessibilityHidden(guestViewMode != .framebuffer)
                 .accessibilityIdentifier("framebufferView")
+                .ignoresSafeArea()
 
                 SerialConsoleView(
                     controller: serialConsole,
@@ -661,8 +662,11 @@ enum GuestSpecialKey: UInt16, CaseIterable, Identifiable {
     }
 }
 
+// The guest's writable layer, kept beside its image so changes outlive the
+// run; /init formats it only while it is blank. Deleting it starts afresh.
 enum OverlayDisk {
-    static let filename = "kernarium-overlay.ext4"
+    // Not .ext4 or .erofs, so the image list does not offer it as a rootfs.
+    static let pathExtension = "changes"
 
     static func byteCount(forSizeGiB sizeGiB: Int) throws -> UInt64 {
         guard EmulatorConfiguration.overlaySizeRangeGiB.contains(sizeGiB) else {
@@ -671,15 +675,12 @@ enum OverlayDisk {
         return UInt64(sizeGiB) * 1024 * 1024 * 1024
     }
 
-    static func recreate(
-        sizeGiB: Int,
-        in directory: URL = FileManager.default.temporaryDirectory
-    ) throws -> URL {
+    static func prepare(sizeGiB: Int, for rootfs: URL) throws -> URL {
         let manager = FileManager.default
-        let disk = directory.appendingPathComponent(filename)
+        let disk = rootfs.appendingPathExtension(pathExtension)
         let requestedByteCount = try byteCount(forSizeGiB: sizeGiB)
         if manager.fileExists(atPath: disk.path) {
-            try manager.removeItem(at: disk)
+            return disk
         }
         guard manager.createFile(atPath: disk.path, contents: nil) else {
             throw CocoaError(.fileWriteUnknown)
@@ -1045,8 +1046,9 @@ final class EmulatorLauncher: ObservableObject, SpaceRun {
             }
         }
         do {
-            let overlay = try OverlayDisk.recreate(
-                sizeGiB: configuration.overlaySizeGiB
+            let overlay = try OverlayDisk.prepare(
+                sizeGiB: configuration.overlaySizeGiB,
+                for: rootfs
             )
             return PreparedBoot(rootfs: rootfs, overlay: overlay)
         } catch {

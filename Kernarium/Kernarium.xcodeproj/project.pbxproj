@@ -621,7 +621,9 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.imxieyi.Kernarium;
+				INFOPLIST_KEY_CFBundleDisplayName = "Kelly Linux";
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = lol.respring.kellylinux;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -669,7 +671,9 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.imxieyi.Kernarium;
+				INFOPLIST_KEY_CFBundleDisplayName = "Kelly Linux";
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = lol.respring.kellylinux;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -704,7 +708,7 @@
 					"-framework",
 					CoreVideo,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.imxieyi.KernariumTests;
+				PRODUCT_BUNDLE_IDENTIFIER = lol.respring.kellylinux.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -739,7 +743,7 @@
 					"-framework",
 					CoreVideo,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.imxieyi.KernariumTests;
+				PRODUCT_BUNDLE_IDENTIFIER = lol.respring.kellylinux.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -763,7 +767,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.imxieyi.KernariumUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = lol.respring.kellylinux.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -786,7 +790,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.imxieyi.KernariumUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = lol.respring.kellylinux.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -809,7 +813,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.imxieyi.KernariumAutomation;
+				PRODUCT_BUNDLE_IDENTIFIER = lol.respring.kellylinux.automation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -832,7 +836,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.imxieyi.KernariumAutomation;
+				PRODUCT_BUNDLE_IDENTIFIER = lol.respring.kellylinux.automation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;

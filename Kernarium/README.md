@@ -108,9 +108,10 @@ A Linux run boots the base archive the runtime embeds
 followed by a segment holding the generic per-run `/init` and its
 `/boot.env`; the runtime writes that initrd to its temporary directory and
 removes it when the run returns. The parameters mount the image read-only on
-`ubd0` beneath an overlay whose writable layer is an ext4 filesystem formatted
-afresh on `ubd1` (the sparse `kernarium-overlay.ext4` the application recreates
-in its temporary directory at each launch). `/init` then switches root into the
+`ubd0` beneath an overlay whose writable layer is an ext4 filesystem on `ubd1`:
+the sparse `<image>.changes` file beside the image in Documents, which the
+application creates once and keeps, so the guest's changes persist; deleting it
+starts the image afresh. `/init` then switches root into the
 image's own `/sbin/init`, which boots `graphical.target`.
 
 Nothing is typed on the console and the runtime edits no image: accounts,

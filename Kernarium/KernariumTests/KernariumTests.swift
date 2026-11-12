@@ -657,26 +657,27 @@ struct KernariumTests {
 
     @Test
     @MainActor
-    func overlayDiskIsRecreatedAtRequestedSize() throws {
+    func overlayDiskIsKeptBesideItsImage() throws {
         let manager = FileManager.default
         let directory = try makeScratchDirectory("overlay-disk")
         defer { try? manager.removeItem(at: directory) }
+        let rootfs = directory.appendingPathComponent("guest.erofs")
 
-        let first = try OverlayDisk.recreate(sizeGiB: 3, in: directory)
+        let first = try OverlayDisk.prepare(sizeGiB: 3, for: rootfs)
+        let attributes = try manager.attributesOfItem(atPath: first.path)
+        let size = attributes[.size] as? NSNumber
+        #expect(first.lastPathComponent == "guest.erofs.changes")
+        #expect(size?.uint64Value == 3 * 1024 * 1024 * 1024)
         let writer = try FileHandle(forWritingTo: first)
         try writer.write(contentsOf: Data([0xa5]))
         try writer.close()
 
-        let second = try OverlayDisk.recreate(sizeGiB: 3, in: directory)
-        let attributes = try manager.attributesOfItem(atPath: second.path)
-        let size = attributes[.size] as? NSNumber
+        let second = try OverlayDisk.prepare(sizeGiB: 3, for: rootfs)
         #expect(first == second)
-        #expect(size?.uint64Value == 3 * 1024 * 1024 * 1024)
-
         let reader = try FileHandle(forReadingFrom: second)
         let prefix = try reader.read(upToCount: 1)
         try reader.close()
-        #expect(prefix == Data([0]))
+        #expect(prefix == Data([0xa5]))
     }
 
     @Test

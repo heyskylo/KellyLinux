@@ -157,7 +157,7 @@ final class BackgroundJob: ObservableObject {
         case running(BackgroundJobTimeline)
     }
 
-    static let identifier = "com.imxieyi.Kernarium.guest.job"
+    static let identifier = "lol.respring.kellylinux.guest.job"
 
     @Published private(set) var state = State.idle
     weak var controller: BackgroundController?

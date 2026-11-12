@@ -22,7 +22,7 @@ set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 DEVICE_NAME='iPad Pro 11-inch (M5)'
-BUNDLE_ID=com.imxieyi.Kernarium
+BUNDLE_ID=lol.respring.kellylinux
 DERIVED_DATA="$ROOT_DIR/.build/kernarium-simulator-derived"
 JOBS=4
 ONLY_TESTING=

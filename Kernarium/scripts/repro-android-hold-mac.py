@@ -44,7 +44,7 @@ sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[2]
 RUN_SCRIPT = ROOT / "Kernarium/scripts/run-ios-mac.sh"
-BUNDLE_ID = "com.imxieyi.Kernarium"
+BUNDLE_ID = "lol.respring.kellylinux"
 FORWARD_PORT = 5589
 SERIAL = f"127.0.0.1:{FORWARD_PORT}"
 CHANNEL = "hold-repro"

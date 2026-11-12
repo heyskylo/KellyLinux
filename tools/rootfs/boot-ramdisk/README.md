@@ -35,8 +35,8 @@ on success and `UML_BOOT_ERROR:<reason>` on any failure, which stops the guest.
 an unknown key is an error and `init` owns the values and defaults. The root is
 mounted one of three ways: `tmpfs` (the default) puts a throwaway tmpfs
 overlay above the read-only image, which Kernarium uses for every Linux
-desktop; `ext4` is the same overlay on a device `/init` formats afresh, so its
-previous contents are lost; `none` makes the image itself the read-write root,
+desktop; `ext4` is the same overlay on a device `/init` formats only while it
+holds no ext4 filesystem, so a kept device carries its contents forward; `none` makes the image itself the read-write root,
 as a starter disk or a one-image machine uses it.
 [`../starter/boot.env`](../starter/boot.env) selects `none` for starter disks.
 
