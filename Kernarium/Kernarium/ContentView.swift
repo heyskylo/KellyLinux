@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var framebufferKeyboardVisible = false
     @State private var specialKeysExpanded = false
     @State private var settingsPresented = false
+    @AppStorage("controls.hidden") private var controlsHidden = false
     /// Whether the window scene fills the screen. Until the view is in a
     /// scene, it is taken to be a window, which is the system's own default.
     @State private var sceneCoversScreen = false
@@ -183,14 +184,30 @@ struct ContentView: View {
 
     private var floatingButtonsContent: some View {
         VStack(alignment: .trailing, spacing: FloatingControlMetrics.spacing) {
-            settingsButton
-            if keepRunningChosen && launcher.phase == .running {
-                keepRunningButton
+            hideControlsButton
+            if !controlsHidden {
+                settingsButton
+                if keepRunningChosen && launcher.phase == .running {
+                    keepRunningButton
+                }
+                displayModeButton
+                keyboardButton
+                specialKeysRow
             }
-            displayModeButton
-            keyboardButton
-            specialKeysRow
         }
+    }
+
+    /// Folds the controls away to leave the guest the whole screen; folded,
+    /// only this faint arrow remains to bring them back.
+    private var hideControlsButton: some View {
+        floatingIconButton(
+            systemName: controlsHidden ? "chevron.left" : "chevron.right",
+            accessibilityLabel: controlsHidden ? "Show controls" : "Hide controls",
+            identifier: "hideControlsButton"
+        ) {
+            withAnimation(.snappy) { controlsHidden.toggle() }
+        }
+        .opacity(controlsHidden ? 0.35 : 1)
     }
 
     /// Starts, or stops, the job that keeps the guest running once the user
